@@ -1,0 +1,6 @@
+/* 错题本页样式 */
+.line-clamp-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
