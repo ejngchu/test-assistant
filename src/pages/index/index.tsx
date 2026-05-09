@@ -140,56 +140,56 @@ export default function Index() {
         </View>
       </View>
       
-      {/* 快速入口区域 */}
+      {/* 快速入口区域 - 四个标签页入口 */}
       <View className="px-4 mt-6">
         <Text className="block text-base font-semibold text-foreground mb-3">快速开始</Text>
         <View className="grid grid-cols-2 gap-3">
-          {/* 拍照提交作业 */}
+          {/* 拍照提交作业 - 跳转标签页 */}
           <View 
             className="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50"
-            onClick={() => navigateTo('/pages/homework/index')}
+            onClick={() => Taro.switchTab({ url: '/pages/homework/index' })}
           >
-            <View className="w-12 h-12 rounded-2xl bg-gradient-to-br from-subject-chinese to-subject-math flex items-center justify-center mb-3">
-              <Camera size={24} color="#FFFFFF" />
+            <View className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-3">
+              <Camera size={28} color="#FFFFFF" />
             </View>
             <Text className="block text-base font-semibold text-foreground">拍照提交作业</Text>
-            <Text className="block text-xs text-gray-500 mt-1">拍一拍，检查作业完成情况</Text>
+            <Text className="block text-xs text-gray-500 mt-1">AI 检查作业完成情况</Text>
           </View>
           
-          {/* 记录错题 */}
+          {/* 记录错题 - 跳转标签页 */}
           <View 
             className="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50"
-            onClick={() => navigateTo('/pages/mistakes/index')}
+            onClick={() => Taro.switchTab({ url: '/pages/mistakes/index' })}
           >
-            <View className="w-12 h-12 rounded-2xl bg-gradient-to-br from-subject-math to-subject-english flex items-center justify-center mb-3">
-              <BookOpen size={24} color="#FFFFFF" />
+            <View className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center mb-3">
+              <BookOpen size={28} color="#FFFFFF" />
             </View>
             <Text className="block text-base font-semibold text-foreground">记录错题</Text>
-            <Text className="block text-xs text-gray-500 mt-1">拍一拍，保存并分析错题</Text>
+            <Text className="block text-xs text-gray-500 mt-1">拍照保存，自动分析知识点</Text>
           </View>
           
-          {/* 复习提醒 */}
+          {/* 复习提醒 - 跳转标签页 */}
           <View 
             className="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50"
-            onClick={() => navigateTo('/pages/review/index')}
+            onClick={() => Taro.switchTab({ url: '/pages/review/index' })}
           >
-            <View className="w-12 h-12 rounded-2xl bg-gradient-to-br from-warning to-accent flex items-center justify-center mb-3">
-              <Calendar size={24} color="#FFFFFF" />
+            <View className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center mb-3">
+              <Calendar size={28} color="#FFFFFF" />
             </View>
             <Text className="block text-base font-semibold text-foreground">复习提醒</Text>
-            <Text className="block text-xs text-gray-500 mt-1">根据记忆曲线科学复习</Text>
+            <Text className="block text-xs text-gray-500 mt-1">记忆曲线科学复习</Text>
           </View>
           
-          {/* 练习中心 */}
+          {/* 练习中心 - 跳转标签页 */}
           <View 
             className="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50"
-            onClick={() => navigateTo('/pages/practice/index')}
+            onClick={() => Taro.switchTab({ url: '/pages/practice/index' })}
           >
-            <View className="w-12 h-12 rounded-2xl bg-gradient-to-br from-success to-info flex items-center justify-center mb-3">
-              <TrendingUp size={24} color="#FFFFFF" />
+            <View className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-3">
+              <TrendingUp size={28} color="#FFFFFF" />
             </View>
             <Text className="block text-base font-semibold text-foreground">练习中心</Text>
-            <Text className="block text-xs text-gray-500 mt-1">针对薄弱点强化训练</Text>
+            <Text className="block text-xs text-gray-500 mt-1">薄弱点针对性强化</Text>
           </View>
         </View>
       </View>

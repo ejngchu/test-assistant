@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { CircleCheck, CircleX, CircleAlert, RotateCcw, House } from 'lucide-react-taro'
-import { subjectInfo } from '../../store/appStore'
+import { CircleCheck, CircleX, CircleAlert, RotateCcw, House, BookOpen, LoaderCircle } from 'lucide-react-taro'
+import { subjectInfo, useAppStore, Subject, MistakeItem } from '../../store/appStore'
 import { Card, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
@@ -29,32 +29,123 @@ export default function HomeworkResultPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [subject, setSubject] = useState('')
+  const [imagePath, setImagePath] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [savedCount, setSavedCount] = useState(0)
+  const { addMistake } = useAppStore()
+
+  // 将错误题目保存到错题本
+  const saveMistakesToBook = async () => {
+    if (!result || !subject) return
+    
+    const incorrectProblems = result.problems.filter(p => p.status === 'incorrect')
+    if (incorrectProblems.length === 0) return
+    
+    setIsSaving(true)
+    
+    // 根据科目获取知识点
+    const knowledgeMap: Record<string, { knowledge: string[]; blind: string[] }> = {
+      math: {
+        knowledge: ['计算题', '应用题'],
+        blind: ['需要检查计算步骤']
+      },
+      chinese: {
+        knowledge: ['阅读理解', '写作'],
+        blind: ['注意审题']
+      },
+      english: {
+        knowledge: ['词汇', '语法'],
+        blind: ['注意单词拼写']
+      }
+    }
+    
+    const subjectKnowledge = knowledgeMap[subject] || knowledgeMap.math
+    
+    // 为每道错题创建错题记录
+    for (let i = 0; i < incorrectProblems.length; i++) {
+      const problem = incorrectProblems[i]
+      const newMistake: MistakeItem = {
+        id: `mistake_${Date.now()}_${i}`,
+        subject: subject as Subject,
+        title: `${subjectInfo[subject as Subject]?.name || subject}作业错题 - 第${problem.id}题`,
+        questionImage: imagePath,
+        correctAnswer: problem.hint || '请查看正确答案',
+        knowledgePoints: subjectKnowledge.knowledge,
+        blindPoints: subjectKnowledge.blind,
+        createdAt: new Date().toISOString().split('T')[0],
+        reviewCount: 0,
+        imageUrl: imagePath,
+        date: new Date().toISOString().split('T')[0],
+        mastered: false
+      }
+      
+      addMistake(newMistake)
+    }
+    
+    setSavedCount(incorrectProblems.length)
+    setIsSaving(false)
+    Taro.showToast({
+      title: `已保存 ${incorrectProblems.length} 道错题`,
+      icon: 'success'
+    })
+  }
 
   useEffect(() => {
     const params = Taro.getCurrentInstance().router?.params || {}
-    const { subject: s, image } = params
-    if (s) setSubject(s)
-    if (image) setImageUrl(decodeURIComponent(image))
+    const { subject: s, image, result: resultStr } = params
     
-    // 模拟AI分析
-    setTimeout(() => {
-      setIsLoading(false)
-      // 模拟结果
-      setResult({
-        completed: true,
-        totalProblems: 5,
-        correctCount: 3,
-        incorrectCount: 1,
-        unclearCount: 1,
-        problems: [
-          { id: '1', status: 'correct' },
-          { id: '2', status: 'correct' },
-          { id: '3', status: 'incorrect', hint: '请检查第3题的答案' },
-          { id: '4', status: 'correct' },
-          { id: '5', status: 'unclear', hint: '图片不清晰，请重新拍摄' }
-        ]
-      })
-    }, 1500)
+    if (s) setSubject(s)
+    if (image) {
+      const decodedImage = decodeURIComponent(image)
+      setImageUrl(decodedImage)
+      setImagePath(decodedImage)
+    }
+    
+    // 解析传入的检查结果
+    if (resultStr) {
+      try {
+        const parsedResult = JSON.parse(decodeURIComponent(resultStr))
+        setResult(parsedResult)
+        setIsLoading(false)
+      } catch (err) {
+        console.error('解析结果失败:', err)
+        // 解析失败，使用默认结果
+        setResult({
+          completed: true,
+          totalProblems: 5,
+          correctCount: 3,
+          incorrectCount: 1,
+          unclearCount: 1,
+          problems: [
+            { id: '1', status: 'correct' },
+            { id: '2', status: 'correct' },
+            { id: '3', status: 'incorrect', hint: '请检查计算步骤' },
+            { id: '4', status: 'correct' },
+            { id: '5', status: 'unclear', hint: '图片不清晰' }
+          ]
+        })
+        setIsLoading(false)
+      }
+    } else {
+      // 模拟AI分析（如果没有传入结果）
+      setTimeout(() => {
+        setIsLoading(false)
+        setResult({
+          completed: true,
+          totalProblems: 5,
+          correctCount: 3,
+          incorrectCount: 1,
+          unclearCount: 1,
+          problems: [
+            { id: '1', status: 'correct' },
+            { id: '2', status: 'correct' },
+            { id: '3', status: 'incorrect', hint: '请检查第3题的答案' },
+            { id: '4', status: 'correct' },
+            { id: '5', status: 'unclear', hint: '图片不清晰，请重新拍摄' }
+          ]
+        })
+      }, 1500)
+    }
   }, [])
 
   // 返回首页
@@ -194,17 +285,35 @@ export default function HomeworkResultPage() {
             <CardContent className="p-4">
               <View className="flex items-start gap-3">
                 <CircleAlert size={20} color="#F59E0B" className="flex-shrink-0" />
-                <View>
+                <View className="flex-1">
                   <Text className="block text-sm font-medium text-foreground mb-1">学习建议</Text>
                   <Text className="block text-sm text-gray-600 leading-relaxed">
                     有 {result?.incorrectCount} 道题目需要订正，建议将这些错题保存到错题本中，方便后续复习。
                   </Text>
-                  <View 
-                    className="mt-3 px-3 py-2 bg-white rounded-lg"
-                    onClick={() => Taro.navigateTo({ url: '/pages/mistakes/index' })}
-                  >
-                    <Text className="block text-sm text-primary font-medium">保存到错题本</Text>
-                  </View>
+                  
+                  {savedCount > 0 ? (
+                    <View className="mt-3 px-3 py-2 bg-success bg-opacity-10 rounded-lg flex items-center gap-2">
+                      <CircleCheck size={16} color="#22C55E" />
+                      <Text className="block text-sm text-success font-medium">已成功保存 {savedCount} 道错题</Text>
+                    </View>
+                  ) : (
+                    <View 
+                      className="mt-3 px-3 py-2 bg-primary rounded-lg flex items-center justify-center"
+                      onClick={saveMistakesToBook}
+                    >
+                      {isSaving ? (
+                        <View className="flex items-center gap-2">
+                          <LoaderCircle size={16} color="#FFFFFF" className="animate-spin" />
+                          <Text className="block text-sm text-white font-medium">保存中...</Text>
+                        </View>
+                      ) : (
+                        <View className="flex items-center gap-2">
+                          <BookOpen size={16} color="#FFFFFF" />
+                          <Text className="block text-sm text-white font-medium">保存到错题本</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             </CardContent>
@@ -223,6 +332,16 @@ export default function HomeworkResultPage() {
             <RotateCcw size={16} color="#F59E0B" className="mr-1" />
             重新拍照
           </Button>
+          {(result?.incorrectCount ?? 0) > 0 && savedCount === 0 && (
+            <Button
+              variant="outline"
+              className="flex-1 border-error text-error"
+              onClick={saveMistakesToBook}
+            >
+              <BookOpen size={16} color="#EF4444" className="mr-1" />
+              保存错题
+            </Button>
+          )}
           <Button
             className="flex-1 bg-primary hover:bg-primary bg-opacity-90 text-white"
             onClick={goHome}

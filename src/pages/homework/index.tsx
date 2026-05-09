@@ -4,7 +4,7 @@ import Taro from '@tarojs/taro'
 import { Camera, FileText, Calculator, Languages, LoaderCircle } from 'lucide-react-taro'
 import { Subject, subjectInfo } from '../../store/appStore'
 import { Card, CardContent } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
+import { Network } from '../../network'
 import './index.css'
 
 // 科目配置
@@ -26,74 +26,55 @@ export default function HomeworkPage() {
     setCapturedImage('')
   }
 
-  // 拍照上传
-  const takePhoto = async () => {
+  // 拍照或从相册选择（与错题本一致）
+  const chooseImage = async () => {
     if (!selectedSubject) {
       Taro.showToast({ title: '请先选择科目', icon: 'none' })
       return
     }
 
     try {
-      const res = await Taro.chooseImage({
+      const res = await Taro.showActionSheet({
+        itemList: ['拍照上传', '从相册选择']
+      })
+      
+      const sourceType = res.tapIndex === 0 ? ['camera'] : ['album']
+      
+      const imageRes = await Taro.chooseImage({
         count: 1,
-        sourceType: ['camera'],
+        sourceType: sourceType as ('camera' | 'album')[],
         sizeType: ['compressed']
       })
       
-      setCapturedImage(res.tempFilePaths[0])
+      const imagePath = imageRes.tempFilePaths[0]
+      setCapturedImage(imagePath)
       setIsUploading(true)
       
-      // 模拟上传和分析过程
-      setTimeout(() => {
-        setIsUploading(false)
-        setIsAnalyzing(true)
-        
-        setTimeout(() => {
-          setIsAnalyzing(false)
-          // 跳转到结果页面
-          Taro.navigateTo({
-            url: `/pages/homework-result/index?subject=${selectedSubject}&image=${encodeURIComponent(res.tempFilePaths[0])}`
-          })
-        }, 2000)
-      }, 1000)
-    } catch (err) {
-      console.error('拍照失败:', err)
-      Taro.showToast({ title: '拍照失败，请重试', icon: 'none' })
-    }
-  }
-
-  // 从相册选择
-  const chooseFromAlbum = async () => {
-    if (!selectedSubject) {
-      Taro.showToast({ title: '请先选择科目', icon: 'none' })
-      return
-    }
-
-    try {
-      const res = await Taro.chooseImage({
-        count: 1,
-        sourceType: ['album'],
-        sizeType: ['compressed']
-      })
+      // 调用后端 API 检查作业
+      const result = await checkHomework(selectedSubject, imagePath)
       
-      setCapturedImage(res.tempFilePaths[0])
-      setIsUploading(true)
+      setIsUploading(false)
+      setIsAnalyzing(true)
       
-      // 模拟上传和分析过程
+      // 等待一下让用户看到分析过程
       setTimeout(() => {
-        setIsUploading(false)
-        setIsAnalyzing(true)
+        setIsAnalyzing(false)
+        // 跳转到结果页面，传递检查结果
+        const params = new URLSearchParams({
+          subject: selectedSubject,
+          image: encodeURIComponent(imagePath),
+        })
         
-        setTimeout(() => {
-          setIsAnalyzing(false)
-          Taro.navigateTo({
-            url: `/pages/homework-result/index?subject=${selectedSubject}&image=${encodeURIComponent(res.tempFilePaths[0])}`
-          })
-        }, 2000)
-      }, 1000)
+        if (result) {
+          params.append('result', JSON.stringify(result))
+        }
+        
+        Taro.navigateTo({
+          url: `/pages/homework-result/index?${params.toString()}`
+        })
+      }, 1500)
     } catch (err) {
       console.error('选择图片失败:', err)
-      Taro.showToast({ title: '选择失败，请重试', icon: 'none' })
     }
   }
 
@@ -194,38 +175,20 @@ export default function HomeworkPage() {
               </View>
             ) : (
               // 未拍摄 - 显示占位区域
-              <View className="h-48 flex flex-col items-center justify-center py-8">
+              <View 
+                className="h-48 flex flex-col items-center justify-center py-8 cursor-pointer"
+                onClick={chooseImage}
+              >
                 <View className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                   <Camera size={28} color="#9CA3AF" />
                 </View>
                 <Text className="block text-sm text-gray-500 mb-4">
-                  {selectedSubject ? '拍摄或上传作业图片' : '请先选择科目'}
+                  {selectedSubject ? '点击拍摄或上传作业图片' : '请先选择科目'}
                 </Text>
               </View>
             )}
           </CardContent>
         </Card>
-      </View>
-
-      {/* 操作按钮 */}
-      <View className="px-4 mt-6 space-y-3">
-        <Button
-          className="w-full bg-primary text-white"
-          disabled={!selectedSubject || isUploading || isAnalyzing}
-          onClick={takePhoto}
-        >
-          <Camera size={18} color="#FFFFFF" className="mr-2" />
-          <Text className="block text-sm">拍照上传</Text>
-        </Button>
-        
-        <Button
-          variant="outline"
-          className="w-full border-primary text-primary"
-          disabled={!selectedSubject || isUploading || isAnalyzing}
-          onClick={chooseFromAlbum}
-        >
-          <Text className="block text-sm">从相册选择</Text>
-        </Button>
       </View>
 
       {/* 使用提示 */}
