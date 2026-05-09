@@ -14,6 +14,20 @@ const subjects: { key: Subject; name: string; icon: any; description: string }[]
   { key: 'english', name: '英语', icon: Languages, description: '单词、句型、阅读' }
 ]
 
+// 作业检查结果类型
+interface HomeworkCheckResult {
+  completed: boolean
+  totalProblems: number
+  correctCount: number
+  incorrectCount: number
+  unclearCount: number
+  problems: Array<{
+    id: string
+    status: 'correct' | 'incorrect' | 'unclear'
+    hint?: string
+  }>
+}
+
 export default function HomeworkPage() {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null)
   const [capturedImage, setCapturedImage] = useState<string>('')
@@ -24,6 +38,25 @@ export default function HomeworkPage() {
   const selectSubject = (subject: Subject) => {
     setSelectedSubject(subject)
     setCapturedImage('')
+  }
+
+  // 调用后端 API 检查作业
+  const checkHomework = async (subject: Subject, imagePath: string): Promise<HomeworkCheckResult | null> => {
+    try {
+      const res = await Network.request({
+        url: '/api/study/homework/check',
+        method: 'POST',
+        data: { subject, imageUrl: imagePath }
+      })
+      
+      if (res.data?.code === 200 && res.data?.data?.result) {
+        return res.data.data.result
+      }
+      return null
+    } catch (err) {
+      console.error('作业检查失败:', err)
+      return null
+    }
   }
 
   // 拍照或从相册选择（与错题本一致）
