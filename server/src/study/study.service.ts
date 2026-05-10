@@ -267,20 +267,20 @@ const chineseKnowledgePoints = {
         ],
         answer: 'A',
         difficulty: 'medium',
-      },
-      {
-        id: 'c2',
-        knowledgePoint: '形近字辨析',
-        content: '"木"字加一笔变成的新字是（ ）。',
-        options: [
-          { key: 'A', value: '本' },
-          { key: 'B', value: '未' },
-          { key: 'C', value: '刀' },
-          { key: 'D', value: '人' },
-        ],
-        answer: 'A',
-        difficulty: 'medium',
-      },
+       },
+       {
+         id: 'c4',
+         knowledgePoint: '同音字辨析',
+         content: '"再"和"在"的用法正确的是：（ ）',
+         options: [
+           { key: 'A', value: '我"在"家里"再"见' },
+           { key: 'B', value: '我"再"家里"在"见' },
+           { key: 'C', value: '我"在"家里"在"见' },
+           { key: 'D', value: '我"再"家里"再"见' },
+         ],
+         answer: 'A',
+         difficulty: 'medium',
+       },
       {
         id: 'c3',
         knowledgePoint: '形近字辨析',
@@ -362,19 +362,19 @@ const englishKnowledgePoints = {
   },
   '可数名词': {
     questions: [
-      {
-        id: 'e2',
-        knowledgePoint: '可数名词复数',
-        content: 'There are three _____ on the desk.（ ）',
-        options: [
-          { key: 'A', value: 'book' },
-          { key: 'B', value: 'books' },
-          { key: 'C', value: 'bookes' },
-          { key: 'D', value: 'booked' },
-        ],
-        answer: 'B',
-        difficulty: 'easy',
-      },
+       {
+         id: 'e4',
+         knowledgePoint: '可数名词复数',
+         content: 'There are three _____ on the desk.（ ）',
+         options: [
+           { key: 'A', value: 'book' },
+           { key: 'B', value: 'books' },
+           { key: 'C', value: 'bookes' },
+           { key: 'D', value: 'booked' },
+         ],
+         answer: 'B',
+         difficulty: 'easy',
+       },
     ],
   },
 };
