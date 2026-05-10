@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { View, Text, Image } from '@tarojs/components'
+import { useState, useMemo } from 'react'
+import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Plus, Camera, Search, ChevronRight, BookOpen } from 'lucide-react-taro'
 import { useAppStore, Subject, subjectInfo } from '../../store/appStore'
@@ -7,14 +7,51 @@ import { Card, CardContent } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 import './index.css'
 
+// 知识点颜色配置
+const knowledgePointColors = [
+  { bg: '#FEE2E2', color: '#EF4444' },  // 红色
+  { bg: '#DBEAFE', color: '#3B82F6' },  // 蓝色
+  { bg: '#D1FAE5', color: '#10B981' },  // 绿色
+  { bg: '#FEF3C7', color: '#F59E0B' },  // 黄色
+  { bg: '#E0E7FF', color: '#6366F1' },  // 紫色
+  { bg: '#FCE7F3', color: '#EC4899' },  // 粉色
+  { bg: '#CFFAFE', color: '#06B6D4' },  // 青色
+  { bg: '#FED7AA', color: '#F97316' },  // 橙色
+]
+
 export default function MistakesPage() {
   const [activeTab, setActiveTab] = useState<Subject | 'all'>('all')
+  const [selectedKnowledgePoint, setSelectedKnowledgePoint] = useState<string | null>(null)
   const { mistakes } = useAppStore()
 
-  // 过滤错题
-  const filteredMistakes = activeTab === 'all' 
+  // 获取所有知识点及其颜色
+  const knowledgePointsWithColors = useMemo(() => {
+    const pointsSet = new Set<string>()
+    mistakes.forEach(m => {
+      m.knowledgePoints.forEach(p => pointsSet.add(p))
+    })
+    
+    return Array.from(pointsSet).map((point, idx) => ({
+      name: point,
+      color: knowledgePointColors[idx % knowledgePointColors.length]
+    }))
+  }, [mistakes])
+
+  // 过滤错题 - 按科目
+  const subjectFilteredMistakes = activeTab === 'all' 
     ? mistakes 
     : mistakes.filter(m => m.subject === activeTab)
+
+  // 过滤错题 - 按知识点（选中高亮显示该知识点相关错题）
+  const filteredMistakes = selectedKnowledgePoint
+    ? subjectFilteredMistakes.filter(m => m.knowledgePoints.includes(selectedKnowledgePoint))
+    : subjectFilteredMistakes
+
+  // 获取知识点颜色
+  const getKnowledgePointStyle = (point: string) => {
+    const found = knowledgePointsWithColors.find(k => k.name === point)
+    return found ? found.color : { bg: '#F3F4F6', color: '#6B7280' }
+  }
 
   // 导航到详情
   const navigateToDetail = (id: string) => {
@@ -81,7 +118,10 @@ export default function MistakesPage() {
               className={`px-4 py-2 rounded-full whitespace-nowrap ${
                 activeTab === tab ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
               }`}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab)
+                setSelectedKnowledgePoint(null)
+              }}
             >
               <Text className={`block text-sm font-medium ${
                 activeTab === tab ? 'text-white' : 'text-gray-600'
@@ -93,6 +133,56 @@ export default function MistakesPage() {
           ))}
         </View>
       </View>
+
+      {/* 知识点筛选 - 彩色背景高亮 */}
+      {knowledgePointsWithColors.length > 0 && (
+        <View className="px-4 py-3 bg-white border-b border-gray-100">
+          <View className="flex items-center gap-2 mb-2">
+            <BookOpen size={14} color="#F59E0B" />
+            <Text className="block text-xs font-medium text-gray-500">知识点筛选</Text>
+          </View>
+          <ScrollView scrollX className="flex flex-row gap-2">
+            {/* 全部知识点按钮 */}
+            <View
+              className={`px-3 py-1.5 rounded-full whitespace-nowrap cursor-pointer ${
+                selectedKnowledgePoint === null 
+                  ? 'bg-gray-800 text-white' 
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+              onClick={() => setSelectedKnowledgePoint(null)}
+            >
+              <Text className={`block text-xs ${selectedKnowledgePoint === null ? 'text-white' : 'text-gray-600'}`}>
+                全部
+              </Text>
+            </View>
+            
+            {/* 知识点标签 - 彩色背景 */}
+            {knowledgePointsWithColors.map((kp, idx) => {
+              const isSelected = selectedKnowledgePoint === kp.name
+              return (
+                <View
+                  key={idx}
+                  className={`px-3 py-1.5 rounded-full whitespace-nowrap cursor-pointer transition-all ${
+                    isSelected ? 'ring-2 ring-offset-1' : ''
+                  }`}
+                  style={{ 
+                    backgroundColor: isSelected ? kp.color.bg : kp.color.bg + '80',
+                    ringColor: kp.color.color
+                  }}
+                  onClick={() => setSelectedKnowledgePoint(isSelected ? null : kp.name)}
+                >
+                  <Text 
+                    className="block text-xs font-medium"
+                    style={{ color: isSelected ? kp.color.color : '#374151' }}
+                  >
+                    {kp.name}
+                  </Text>
+                </View>
+              )
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* 搜索栏 */}
       <View className="px-4 py-3">
@@ -170,6 +260,34 @@ export default function MistakesPage() {
                         <Text className="block text-sm font-medium text-foreground mb-1 line-clamp-2">
                           {mistake.title}
                         </Text>
+                        
+                        {/* 知识点标签 - 彩色背景 */}
+                        <View className="flex flex-wrap gap-1 mb-2">
+                          {mistake.knowledgePoints.slice(0, 2).map((kp, idx) => {
+                            const kpStyle = getKnowledgePointStyle(kp)
+                            const isHighlighted = selectedKnowledgePoint === kp
+                            return (
+                              <View 
+                                key={idx}
+                                className={`px-2 py-0.5 rounded text-xs ${
+                                  isHighlighted ? 'ring-1 ring-offset-0' : ''
+                                }`}
+                                style={{ 
+                                  backgroundColor: isHighlighted ? kpStyle.color.bg : kpStyle.color.bg + '80',
+                                  color: kpStyle.color.color,
+                                  ringColor: kpStyle.color.color
+                                }}
+                              >
+                                {kp}
+                              </View>
+                            )
+                          })}
+                          {mistake.knowledgePoints.length > 2 && (
+                            <View className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500">
+                              +{mistake.knowledgePoints.length - 2}
+                            </View>
+                          )}
+                        </View>
                         
                         <View className="flex items-center justify-between">
                           <Text className="block text-xs text-gray-400">
