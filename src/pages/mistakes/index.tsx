@@ -24,23 +24,23 @@ export default function MistakesPage() {
   const [selectedKnowledgePoint, setSelectedKnowledgePoint] = useState<string | null>(null)
   const { mistakes } = useAppStore()
 
-  // 获取所有知识点及其颜色
+  // 过滤错题 - 按科目
+  const subjectFilteredMistakes = activeTab === 'all'
+    ? mistakes
+    : mistakes.filter(m => m.subject === activeTab)
+
+  // 获取当前科目过滤后的知识点及其颜色
   const knowledgePointsWithColors = useMemo(() => {
     const pointsSet = new Set<string>()
-    mistakes.forEach(m => {
+    subjectFilteredMistakes.forEach(m => {
       m.knowledgePoints.forEach(p => pointsSet.add(p))
     })
-    
+
     return Array.from(pointsSet).map((point, idx) => ({
       name: point,
       color: knowledgePointColors[idx % knowledgePointColors.length]
     }))
-  }, [mistakes])
-
-  // 过滤错题 - 按科目
-  const subjectFilteredMistakes = activeTab === 'all' 
-    ? mistakes 
-    : mistakes.filter(m => m.subject === activeTab)
+  }, [subjectFilteredMistakes])
 
   // 过滤错题 - 按知识点（选中高亮显示该知识点相关错题）
   const filteredMistakes = selectedKnowledgePoint

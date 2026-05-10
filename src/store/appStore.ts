@@ -29,6 +29,18 @@ export interface MistakeItem {
   imageUrl?: string
   date?: string
   mastered?: boolean
+  // AI分析文本
+  analysis?: string
+}
+
+// 作业检查结果类型
+export interface ProblemResult {
+  id: string
+  status: 'correct' | 'incorrect' | 'unclear'
+  hint?: string
+  correctAnswer?: string
+  analysis?: string
+  position?: { x: number; y: number; width: number; height: number }
 }
 
 // 作业数据结构
@@ -39,11 +51,7 @@ export interface HomeworkItem {
   status: 'pending' | 'checking' | 'completed' | 'error'
   result?: {
     completed: boolean
-    problems: {
-      id: string
-      status: 'correct' | 'incorrect' | 'unclear'
-      hint?: string
-    }[]
+    problems: ProblemResult[]
   }
   createdAt: string
 }

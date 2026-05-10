@@ -7,7 +7,8 @@ export default defineAppConfig({
     'pages/mistake-detail/index',
     'pages/review/index',
     'pages/practice/index',
-    'pages/practice-answer/index'
+    'pages/practice-answer/index',
+    'pages/settings/index'
   ],
   window: {
     backgroundTextStyle: 'light',

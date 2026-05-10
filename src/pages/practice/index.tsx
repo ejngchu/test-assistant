@@ -5,11 +5,12 @@ import { Sparkles, TrendingUp, ChevronRight, BookOpen, Plus, Calendar } from 'lu
 import { useAppStore, Subject, subjectInfo, PracticeTask } from '../../store/appStore'
 import { Card, CardContent } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
+import { Network } from '../../network'
 import './index.css'
 
 export default function PracticePage() {
   const [activeTab, setActiveTab] = useState<'recommended' | 'history'>('recommended')
-  const { practiceTasks, stats } = useAppStore()
+  const { practiceTasks, stats, addPracticeTask } = useAppStore()
 
   // 分类任务
   const recommendedTasks = practiceTasks.filter(t => t.status !== 'completed')
@@ -20,6 +21,37 @@ export default function PracticePage() {
   // 开始练习
   const startPractice = (task: PracticeTask) => {
     Taro.navigateTo({ url: `/pages/practice-answer/index?id=${task.id}` })
+  }
+
+  // 生成新练习
+  const handleGeneratePractice = async () => {
+    try {
+      Taro.showLoading({ title: '生成中...' })
+
+      const result = await Network.request({
+        url: '/api/study/practice/generate',
+        method: 'POST',
+        data: {
+          userId: 'user1',
+          count: 5,
+          knowledgePoints: []
+        }
+      })
+
+      Taro.hideLoading()
+
+      if (result.data?.code === 200 && result.data?.data) {
+        const task = result.data.data
+        addPracticeTask(task)
+        Taro.navigateTo({ url: `/pages/practice-answer/index?id=${task.id}` })
+      } else {
+        Taro.showToast({ title: '生成失败', icon: 'none' })
+      }
+    } catch (err) {
+      Taro.hideLoading()
+      Taro.showToast({ title: '生成失败', icon: 'error' })
+      console.error('生成练习失败:', err)
+    }
   }
 
   // 获取任务状态
@@ -223,9 +255,9 @@ export default function PracticePage() {
       {/* 生成新练习按钮 */}
       {activeTab === 'recommended' && (
         <View className="px-4 pb-4">
-          <View 
+          <View
             className="bg-white rounded-2xl p-4 flex items-center gap-3 active:bg-gray-50"
-            onClick={() => Taro.showToast({ title: '正在智能生成练习...', icon: 'loading' })}
+            onClick={handleGeneratePractice}
           >
             <View className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <Plus size={24} color="#FFFFFF" />

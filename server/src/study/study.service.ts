@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { LLMService } from '@/common/services/llm.service';
 
 export interface ProblemResult {
   id: string;
   status: 'correct' | 'incorrect' | 'unclear';
   hint?: string;
+  correctAnswer?: string;
+  analysis?: string;
 }
 
 export interface HomeworkResult {
@@ -381,15 +384,11 @@ const englishKnowledgePoints = {
 
 @Injectable()
 export class StudyService {
+  constructor(private readonly llmService: LLMService) {}
+
   /**
    * 自动识别作业科目
-   * 使用 Mock + Placeholder 设计
-   * 预留真实 LLM API 接口（可通过 Coze/OpenAI 等实现）
-   * 
-   * 识别逻辑（Placeholder）：
-   * - 语文：检测汉字、拼音、文本等特征
-   * - 数学：检测数字、运算符、几何图形等特征
-   * - 英语：检测英文字母、单词、句子等特征
+   * 使用 LLM API 进行图像识别
    */
   async detectSubject(imageUrl: string): Promise<{
     code: number;
@@ -400,52 +399,23 @@ export class StudyService {
       isUncertain: boolean;
     };
   }> {
-    // 模拟 LLM API 调用延迟
-    await this.delay(1000);
-
-    // TODO: 替换为真实的 LLM API 调用
-    // 真实实现示例（使用 Coze API）:
-    // const response = await fetch('https://api.coze.cn/v1/chat', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${process.env.COZE_API_KEY}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     model: 'coze-dev',
-    //     messages: [{
-    //       role: 'user',
-    //       content: `分析这张图片，判断是语文、数学还是英语作业。返回 JSON: {"subject": "chinese|math|english", "confidence": 0-100}`
-    //     }]
-    //   })
-    // });
-    // const result = await response.json();
-
-    // Mock 实现：随机返回科目（演示用）
-    // 真实场景中应根据图片内容智能判断
-    const subjects = ['chinese', 'math', 'english'];
-    const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
-    
-    // 模拟置信度（0-100）
-    const confidence = Math.floor(Math.random() * 30) + 70; // 70-100
-    
-    // 如果置信度低于 60，认为识别不确定
-    const isUncertain = confidence < 60;
+    // 调用LLM服务进行科目识别
+    const result = await this.llmService.detectSubject(imageUrl);
 
     return {
       code: 200,
-      msg: isUncertain ? '科目识别不确定，请手动选择' : '科目识别成功',
+      msg: result.confidence < 60 ? '科目识别不确定，请手动选择' : '科目识别成功',
       data: {
-        subject: randomSubject,
-        confidence,
-        isUncertain,
+        subject: result.subject,
+        confidence: result.confidence,
+        isUncertain: result.confidence < 60,
       },
     };
   }
 
   /**
    * 检查作业完成情况
-   * 模拟AI图像识别和分析
+   * 使用LLM API进行图像识别和分析
    */
   async checkHomework(dto: { subject: string; imageUrl: string }): Promise<{
     code: number;
@@ -454,28 +424,28 @@ export class StudyService {
       result: HomeworkResult;
     };
   }> {
-    // 模拟AI分析延迟
-    await this.delay(1500);
+    // 调用LLM服务检查作业
+    const llmResult = await this.llmService.checkHomework(dto.imageUrl, dto.subject);
 
-    // 模拟作业检查结果
+    // 计算统计
+    const correctCount = llmResult.problems.filter((p) => p.status === 'correct').length;
+    const incorrectCount = llmResult.problems.filter((p) => p.status === 'incorrect').length;
+    const unclearCount = llmResult.problems.filter((p) => p.status === 'unclear').length;
+
     const result: HomeworkResult = {
       completed: true,
-      totalProblems: 5,
-      correctCount: Math.floor(Math.random() * 2) + 3, // 3-4个正确
-      incorrectCount: 1,
-      unclearCount: 0,
-      problems: [
-        { id: '1', status: 'correct' },
-        { id: '2', status: 'correct' },
-        { id: '3', status: 'incorrect', hint: '计算有误，请检查计算步骤' },
-        { id: '4', status: 'correct' },
-        { id: '5', status: 'correct' },
-      ],
+      totalProblems: llmResult.problems.length,
+      correctCount,
+      incorrectCount,
+      unclearCount,
+      problems: llmResult.problems.map((p) => ({
+        id: p.id,
+        status: p.status,
+        hint: p.hint,
+        correctAnswer: p.correctAnswer,
+        analysis: p.analysis,
+      })),
     };
-
-    result.correctCount = result.problems.filter((p) => p.status === 'correct').length;
-    result.incorrectCount = result.problems.filter((p) => p.status === 'incorrect').length;
-    result.unclearCount = result.problems.filter((p) => p.status === 'unclear').length;
 
     return {
       code: 200,
@@ -486,11 +456,11 @@ export class StudyService {
 
   /**
    * 分析错题
-   * 识别知识点和知识盲点
+   * 使用LLM API识别知识点和知识盲点
    */
-  async analyzeMistake(dto: { 
-    subject: string; 
-    imageUrl: string; 
+  async analyzeMistake(dto: {
+    subject: string;
+    imageUrl: string;
     userAnswer?: string;
   }): Promise<{
     code: number;
@@ -503,40 +473,19 @@ export class StudyService {
       analysis: string;
     };
   }> {
-    // 模拟AI分析延迟
-    await this.delay(2000);
-
-    // 根据科目返回不同的分析结果
-    const subjectAnalysis: Record<string, any> = {
-      math: {
-        title: '有余数的除法',
-        correctAnswer: '24 ÷ 5 = 4 ······ 4',
-        knowledgePoints: ['有余数除法', '除法竖式计算', '余数概念'],
-        blindPoints: ['余数必须小于除数', '商的位置确定'],
-        analysis: '这道题考查了学生对有余数除法的理解。学生错误地将余数写成了大于除数的形式，说明对余数的概念理解不够清晰。',
-      },
-      chinese: {
-        title: '形近字辨析',
-        correctAnswer: '已、己',
-        knowledgePoints: ['形近字识别', '汉字结构分析'],
-        blindPoints: ['"已"表示已经，"己"表示自己'],
-        analysis: '这道题考查了学生对形近字的辨析能力。"已"开门的已，"己"是天干第二位，两字形状相似但意思完全不同。',
-      },
-      english: {
-        title: '一般现在时',
-        correctAnswer: 'She plays tennis every day.',
-        knowledgePoints: ['一般现在时', '第三人称单数动词变化'],
-        blindPoints: ['动词第三人称单数要加s或es'],
-        analysis: '这道题考查了学生对一般现在时第三人称单数形式的掌握。在一般现在时中，当主语是第三人称单数时，动词要变为第三人称单数形式，即在词尾加s或es。',
-      },
-    };
-
-    const analysis = subjectAnalysis[dto.subject] || subjectAnalysis.math;
+    // 调用LLM服务分析错题
+    const llmResult = await this.llmService.analyzeMistake(dto.imageUrl, dto.subject);
 
     return {
       code: 200,
       msg: '错题分析完成',
-      data: analysis,
+      data: {
+        title: llmResult.title,
+        correctAnswer: llmResult.correctAnswer,
+        knowledgePoints: llmResult.knowledgePoints,
+        blindPoints: llmResult.blindPoints,
+        analysis: llmResult.analysis,
+      },
     };
   }
 
@@ -639,7 +588,7 @@ export class StudyService {
 
   /**
    * 生成练习题
-   * 基于薄弱知识点生成
+   * 使用LLM API基于薄弱知识点生成
    */
   async generatePractice(dto: {
     subject?: string;
@@ -653,56 +602,24 @@ export class StudyService {
   }> {
     const count = dto.count || 5;
     const subject = dto.subject || 'math';
-    const userId = dto.userId;
-    
-    // 根据科目和知识点选择题目
-    let questionPool: any[] = [];
-    const allKnowledgePoints = { ...mathKnowledgePoints, ...chineseKnowledgePoints, ...englishKnowledgePoints };
-    
-    if (dto.knowledgePoints && dto.knowledgePoints.length > 0) {
-      // 根据指定知识点选择题目
-      dto.knowledgePoints.forEach((kp) => {
-        if (allKnowledgePoints[kp]?.questions) {
-          questionPool.push(...allKnowledgePoints[kp].questions);
-        }
-      });
-    } else {
-      // 根据薄弱知识点自动选择
-      const weakMistakes = mockMistakes.filter(
-        (m) => (m.userId === userId || m.userId === 'user1') && m.blindPoints.length > 0
-      );
-      weakMistakes.forEach((m) => {
-        m.knowledgePoints.forEach((kp: string) => {
-          if (allKnowledgePoints[kp]?.questions) {
-            questionPool.push(...allKnowledgePoints[kp].questions);
-          }
-        });
-      });
-    }
 
-    // 如果没有找到足够题目，使用默认题目
-    if (questionPool.length === 0) {
-      questionPool = [
-        ...mathKnowledgePoints['有余数除法'].questions,
-        ...chineseKnowledgePoints['形近字'].questions,
-        ...englishKnowledgePoints['一般现在时'].questions,
-      ];
-    }
-
-    // 随机选择题目
-    const selectedQuestions: PracticeQuestion[] = [];
-    const shuffled = [...questionPool].sort(() => Math.random() - 0.5);
-    for (let i = 0; i < Math.min(count, shuffled.length); i++) {
-      selectedQuestions.push(shuffled[i]);
-    }
+    // 调用LLM服务生成练习题
+    const llmResult = await this.llmService.generatePractice({
+      subject,
+      knowledgePoints: dto.knowledgePoints || [],
+      count,
+    });
 
     const task: PracticeTask = {
       id: `task_${Date.now()}`,
       title: `${subject === 'math' ? '数学' : subject === 'chinese' ? '语文' : '英语'}巩固练习`,
       subject,
       knowledgePoints: dto.knowledgePoints || ['综合练习'],
-      questions: selectedQuestions,
-      totalCount: selectedQuestions.length,
+      questions: llmResult.questions.map((q) => ({
+        ...q,
+        subject,
+      })),
+      totalCount: llmResult.questions.length,
       completedCount: 0,
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       status: 'pending',
