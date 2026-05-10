@@ -287,6 +287,68 @@ const englishKnowledgePoints = {
 @Injectable()
 export class StudyService {
   /**
+   * 自动识别作业科目
+   * 使用 Mock + Placeholder 设计
+   * 预留真实 LLM API 接口（可通过 Coze/OpenAI 等实现）
+   * 
+   * 识别逻辑（Placeholder）：
+   * - 语文：检测汉字、拼音、文本等特征
+   * - 数学：检测数字、运算符、几何图形等特征
+   * - 英语：检测英文字母、单词、句子等特征
+   */
+  async detectSubject(imageUrl: string): Promise<{
+    code: number;
+    msg: string;
+    data: {
+      subject: string;
+      confidence: number;
+      isUncertain: boolean;
+    };
+  }> {
+    // 模拟 LLM API 调用延迟
+    await this.delay(1000);
+
+    // TODO: 替换为真实的 LLM API 调用
+    // 真实实现示例（使用 Coze API）:
+    // const response = await fetch('https://api.coze.cn/v1/chat', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Authorization': `Bearer ${process.env.COZE_API_KEY}`,
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({
+    //     model: 'coze-dev',
+    //     messages: [{
+    //       role: 'user',
+    //       content: `分析这张图片，判断是语文、数学还是英语作业。返回 JSON: {"subject": "chinese|math|english", "confidence": 0-100}`
+    //     }]
+    //   })
+    // });
+    // const result = await response.json();
+
+    // Mock 实现：随机返回科目（演示用）
+    // 真实场景中应根据图片内容智能判断
+    const subjects = ['chinese', 'math', 'english'];
+    const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
+    
+    // 模拟置信度（0-100）
+    const confidence = Math.floor(Math.random() * 30) + 70; // 70-100
+    
+    // 如果置信度低于 60，认为识别不确定
+    const isUncertain = confidence < 60;
+
+    return {
+      code: 200,
+      msg: isUncertain ? '科目识别不确定，请手动选择' : '科目识别成功',
+      data: {
+        subject: randomSubject,
+        confidence,
+        isUncertain,
+      },
+    };
+  }
+
+  /**
    * 检查作业完成情况
    * 模拟AI图像识别和分析
    */

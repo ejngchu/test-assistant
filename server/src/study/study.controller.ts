@@ -7,6 +7,25 @@ export class StudyController {
   constructor(private readonly studyService: StudyService) {}
 
   /**
+   * 科目识别接口
+   * POST /api/study/subject/detect
+   * 通过图像识别自动判断作业科目（语文/数学/英语）
+   * 使用 Mock + Placeholder 设计，预留真实 LLM API 接口
+   */
+  @Post('subject/detect')
+  async detectSubject(@Body() body: { imageUrl: string }) {
+    console.log('=== 科目识别接口调用 ===');
+    console.log('Method: POST');
+    console.log('URL: /api/study/subject/detect');
+    console.log('Body:', JSON.stringify(body, null, 2));
+    
+    const result = await this.studyService.detectSubject(body.imageUrl);
+    
+    console.log('Response:', JSON.stringify(result, null, 2));
+    return result;
+  }
+
+  /**
    * 作业检查接口
    * POST /api/study/homework/check
    * 接收作业图片，AI分析作业完成情况
