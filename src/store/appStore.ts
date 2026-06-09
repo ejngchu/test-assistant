@@ -1,5 +1,7 @@
 // 学习助手应用状态管理
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import Taro from '@tarojs/taro'
 import { Network } from '@/network'
 
 // 科目枚举
@@ -38,6 +40,11 @@ export interface MistakeItem {
   mastered?: boolean
   // AI分析文本
   analysis?: string
+  // 2026-06-09: 从作业检查结果保留的完整上下文
+  questionText?: string   // 题干原文
+  status?: 'correct' | 'incorrect' | 'unclear'  // 题目状态
+  hint?: string           // 提示/思路
+  learningSuggestion?: string  // 整体学习建议
 }
 
 // 作业检查结果类型
@@ -47,7 +54,6 @@ export interface ProblemResult {
   hint?: string
   correctAnswer?: string
   analysis?: string
-  position?: { x: number; y: number; width: number; height: number }
 }
 
 // 作业数据结构
@@ -156,6 +162,24 @@ const initialReminders: ReviewReminder[] = []
 
 const initialTasks: PracticeTask[] = []
 
+// Taro 存储适配器（Zustand persist 中间件用）
+const taroStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      const res = await Taro.getStorage({ key: name })
+      return (res.data as string) ?? null
+    } catch {
+      return null
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    await Taro.setStorage({ key: name, data: value })
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await Taro.removeStorage({ key: name })
+  },
+}
+
 // 解包 Network 响应：业务数据在 res.data.data
 const unwrap = <T,>(res: Taro.request.SuccessCallbackResult<any>, fallback: T): T => {
   const envelope = res.data
@@ -165,7 +189,9 @@ const unwrap = <T,>(res: Taro.request.SuccessCallbackResult<any>, fallback: T): 
   return fallback
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
   userId: DEFAULT_USER_ID,
 
   // 初始为空，等 fetchAll 拉取
@@ -226,11 +252,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   loadError: null,
 
-  // 从后端拉取错题列表
-  // 错题当前没有 list 端点 → 用 /api/study/review/plan 返回的 reminders 间接组装
-  // （plan 接口按艾宾浩斯算法返回所有错题 + 复习状态，前端在 fetchReviewPlan 里处理）
+  // 从后端拉取错题列表（已废弃：数据通过 fetchReviewPlan 获取）
   fetchMistakes: async () => {
-    // 暂不直接实现，等 Phase 2.8 加 GET /api/study/mistake 端点
+    // 由 fetchReviewPlan 通过 /api/study/review/plan 间接获取
   },
 
   // 从后端拉取复习计划（艾宾浩斯）
@@ -266,11 +290,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         })
       }
     } catch (err) {
-      console.warn('[appStore] fetchReviewPlan failed, using mock fallback:', err)
-      // Fallback：保留初始 mock 数据
-      if (get().reviewReminders.length === 0) {
-        set({ reviewReminders: initialReminders, loadError: String(err) })
-      }
+      console.warn('[appStore] fetchReviewPlan failed:', err)
+      // 仅设置错误状态，不擦除已有数据
+      set({ loadError: String(err) })
     }
   },
 
@@ -307,10 +329,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         set((state) => ({ stats: { ...state.stats, practiceAccuracy: data.stats!.accuracy } }))
       }
     } catch (err) {
-      console.warn('[appStore] fetchPracticeHistory failed, using mock fallback:', err)
-      if (get().practiceTasks.length === 0) {
-        set({ practiceTasks: initialTasks, loadError: String(err) })
-      }
+      console.warn('[appStore] fetchPracticeHistory failed:', err)
+      // 仅设置错误状态，不擦除已有数据
+      set({ loadError: String(err) })
     }
   },
 
@@ -334,4 +355,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ isLoading: false, loadError: String(err) })
     }
   }
-}))
+}),
+    {
+      name: 'venus-mate-storage',
+      storage: createJSONStorage(() => taroStorage),
+      // 只持久化数据字段，不持久化 action 函数
+      partialize: (state) => ({
+        mistakes: state.mistakes,
+        reviewReminders: state.reviewReminders,
+        practiceTasks: state.practiceTasks,
+        homeworkHistory: state.homeworkHistory,
+        stats: state.stats,
+      }),
+    }
+  )
+)

@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import './index.css'
 
-// 记忆曲线周期标签
-const cycleLabels = ['第1天', '第3天', '第7天', '第14天', '第30天']
+// 记忆曲线周期标签（与 server reviewStages [1,2,4,7,15,30,60,90] 对应）
+const cycleLabels = ['第1天', '第2天', '第4天', '第7天', '第15天', '第30天', '第60天', '第90天']
 
 export default function ReviewPage() {
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'completed'>('today')

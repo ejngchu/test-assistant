@@ -11,3 +11,11 @@
     transform: rotate(360deg);
   }
 }
+
+/* 手机端小程序不支持 CSS 变量，覆盖 Tailwind 生成的含 var() 颜色值 */
+.text-gray-800 { color: rgb(30, 41, 57) !important; }
+.text-gray-700 { color: rgb(54, 65, 83) !important; }
+.text-gray-600 { color: rgb(73, 85, 101) !important; }
+.text-gray-500 { color: rgb(106, 114, 130) !important; }
+.text-gray-400 { color: rgb(153, 161, 175) !important; }
+.text-white { color: #fff !important; }

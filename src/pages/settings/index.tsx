@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Network } from '@/network'
+import { cn } from '@/lib/utils'
 import { BookOpen, Clock, TrendingUp, TestTube, Volume2, Info, Download, Calendar } from 'lucide-react-taro'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -69,12 +70,21 @@ useEffect(() => {
         const fullUrl = payload.downloadUrl.startsWith('http')
           ? payload.downloadUrl
           : `${PROJECT_DOMAIN}${payload.downloadUrl}`
-        // H5: 新窗口预览 PDF
-        if (typeof window !== 'undefined') {
+        // 平台检测：H5 新窗口预览，WeApp 下载后打开
+        if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) {
+          try {
+            const downloadRes = await Network.downloadFile({ url: fullUrl })
+            if (downloadRes.statusCode === 200) {
+              await Taro.openDocument({ filePath: downloadRes.tempFilePath, fileType: 'pdf' })
+            } else {
+              throw new Error('下载失败')
+            }
+          } catch {
+            Taro.showToast({ title: '报告已生成，请前往设置页面下载', icon: 'none' })
+          }
+        } else {
           window.open(fullUrl, '_blank')
           Taro.showToast({ title: '报告已在新窗口打开', icon: 'success' })
-        } else {
-          Taro.showToast({ title: '报告已生成', icon: 'success' })
         }
       } else {
         throw new Error('导出失败')
@@ -154,11 +164,16 @@ useEffect(() => {
           <Text className="block text-xs font-medium text-gray-500 px-1">偏好设置</Text>
 
           {/* 演示模式 */}
-          <Card className="bg-blue-50 border border-blue-200">
+          <Card className={demoMode ? "bg-blue-100 border-2 border-blue-400" : "bg-blue-50 border border-blue-200"}>
             <CardContent className="p-4">
               <View className="flex items-center gap-2 mb-2">
-                <TestTube size={18} color="#3B82F6" />
-                <Text className="block text-sm font-semibold text-foreground">演示模式</Text>
+                <TestTube size={18} color={demoMode ? "#1D4ED8" : "#3B82F6"} />
+                <Text className={cn("block text-sm font-semibold", demoMode ? "text-blue-900" : "text-foreground")}>演示模式</Text>
+                {demoMode && (
+                  <View className="ml-2 px-2 py-0.5 rounded-full bg-blue-500">
+                    <Text className="block text-xs text-white">已开启</Text>
+                  </View>
+                )}
               </View>
               <Text className="block text-xs text-gray-600 mb-3 leading-relaxed">
                 开启后所有 AI 功能使用模拟数据，无需配置 API Key。适合功能预览。
@@ -192,11 +207,16 @@ useEffect(() => {
           </Card>
 
           {/* F-04 音效设置 */}
-          <Card className="bg-purple-50 border border-purple-200">
+          <Card className={soundOn ? "bg-purple-100 border-2 border-purple-400" : "bg-purple-50 border border-purple-200"}>
             <CardContent className="p-4">
               <View className="flex items-center gap-2 mb-2">
-                <Volume2 size={18} color="#8B5CF6" />
-                <Text className="block text-sm font-semibold text-foreground">音效反馈</Text>
+                <Volume2 size={18} color={soundOn ? "#6D28D9" : "#8B5CF6"} />
+                <Text className={cn("block text-sm font-semibold", soundOn ? "text-purple-900" : "text-foreground")}>音效反馈</Text>
+                {soundOn && (
+                  <View className="ml-2 px-2 py-0.5 rounded-full bg-purple-500">
+                    <Text className="block text-xs text-white">已开启</Text>
+                  </View>
+                )}
               </View>
               <Text className="block text-xs text-gray-600 mb-3 leading-relaxed">
                 答对/答错时播放提示音，答对&ldquo;叮咚&rdquo;上扬，答错&ldquo;咚咚&rdquo;柔和。
@@ -224,7 +244,7 @@ useEffect(() => {
             <View className="flex items-center gap-2 mb-2">
               <Calendar size={18} color="#9CA3AF" />
               <Text className="block text-sm font-semibold text-foreground">复习提醒</Text>
-              <View className="ml-auto px-2 py-0.5 rounded-full bg-gray-200">
+              <View className="ml-auto px-2 py-1 rounded-full bg-gray-200">
                 <Text className="block text-xs text-gray-500">即将上线</Text>
               </View>
             </View>

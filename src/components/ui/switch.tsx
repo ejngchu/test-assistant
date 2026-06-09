@@ -20,9 +20,11 @@ const Switch = React.forwardRef<
       className={cn(
         "inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background [-webkit-tap-highlight-color:transparent]",
         disabled && "cursor-not-allowed opacity-50",
-        currentChecked ? "bg-primary" : "bg-input",
         className
       )}
+      style={{
+        backgroundColor: currentChecked ? '#F59E0B' : '#D1D5DB',
+      }}
       data-state={currentChecked ? "checked" : "unchecked"}
       hoverClass={
         disabled
@@ -42,10 +44,15 @@ const Switch = React.forwardRef<
       }}
     >
       <View
-        className={cn(
-          "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform",
-          currentChecked ? "translate-x-5" : "translate-x-0"
-        )}
+        style={{
+          height: '20px',
+          width: '20px',
+          borderRadius: '50%',
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+          transform: currentChecked ? 'translateX(20px)' : 'translateX(0)',
+          // WeApp 不支持 CSS transition；动画由 Taro hoverClass + 即时 transform 切换完成
+        }}
       />
     </View>
   )

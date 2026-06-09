@@ -2,15 +2,16 @@ import { useEffect, useState, useRef } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { ArrowLeft, CircleAlert, BookOpen, Brain, CircleCheck, Camera, Lightbulb, Target, Zap, Calendar } from 'lucide-react-taro'
+import { Network } from '@/network'
+import { useAppStore, MistakeItem, subjectInfo } from '@/store/appStore'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import './index.css'
+
 // 插图已上传到 COS（避免 inline 进 WeApp 主包超 2MB 限制）
 const loadingAnalyzeImg = 'https://venus-mate-1426731873.cos.ap-guangzhou.myqcloud.com/illustrations/loading-analyze.png'
-import { Network } from '@/network'
-  import { useAppStore, MistakeItem, subjectInfo } from '@/store/appStore'
-  import { Card, CardContent } from '@/components/ui/card'
-  import { Badge } from '@/components/ui/badge'
-  import { Button } from '@/components/ui/button'
-  import { Progress } from '@/components/ui/progress'
-import './index.css'
 
 export default function MistakeDetailPage() {
   const router = useRouter<{ id?: string; mode?: string; image?: string; subject?: string }>()
@@ -120,7 +121,11 @@ export default function MistakeDetailPage() {
           correctAnswer: mistake.correctAnswer,
           knowledgePoints: mistake.knowledgePoints,
           blindPoints: mistake.blindPoints,
-          analysis: mistake.analysis
+          analysis: mistake.analysis,
+          questionText: mistake.questionText,
+          status: mistake.status,
+          hint: mistake.hint,
+          learningSuggestion: mistake.learningSuggestion,
         }
       })
       if (res.data?.code === 200 && res.data.data?.id) {
@@ -159,7 +164,7 @@ export default function MistakeDetailPage() {
         }
       })
       if (res.data?.code === 200 && res.data.data?.id) {
-        Taro.navigateTo({ url: `/pages/practice-answer/index?taskId=${res.data.data.id}` })
+        Taro.navigateTo({ url: `/pages/practice-answer/index?id=${res.data.data.id}` })
       } else {
         throw new Error(res.data?.msg || '生成练习失败')
       }
@@ -199,13 +204,30 @@ export default function MistakeDetailPage() {
     Taro.navigateBack()
   }
 
-  // 标记为已掌握
-  const markAsMastered = () => {
-    setMistake(prev => prev ? { ...prev, mastered: !prev.mastered } : null)
-    Taro.showToast({ 
-      title: mistake?.mastered ? '已取消掌握' : '已掌握', 
-      icon: 'success' 
-    })
+  // 标记为已掌握（同步到后端）
+  const markAsMastered = async () => {
+    if (!mistake || !savedMistakeId) {
+      Taro.showToast({ title: '请先保存错题', icon: 'none' })
+      return
+    }
+    try {
+      const res = await Network.request({
+        url: '/api/study/review/complete',
+        method: 'POST',
+        data: { mistakeId: savedMistakeId, userId },
+      })
+      if (res.data?.code === 200) {
+        const newMastered = !mistake.mastered
+        setMistake(prev => prev ? { ...prev, mastered: newMastered } : null)
+        void fetchAll()
+        Taro.showToast({ title: newMastered ? '已标记为掌握' : '已取消掌握', icon: 'success' })
+      } else {
+        throw new Error(res.data?.msg || '操作失败')
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '操作失败'
+      Taro.showToast({ title: message, icon: 'error' })
+    }
   }
 
   // 复习错题
@@ -222,7 +244,7 @@ export default function MistakeDetailPage() {
   return (
     <View className="min-h-screen bg-background pb-6">
       {/* 头部 */}
-      <View className="px-4 py-4 bg-white sticky top-0 z-10">
+      <View className="px-4 py-4 bg-white">
         <View className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -309,18 +331,27 @@ export default function MistakeDetailPage() {
               </View>
             )}
 
-            {/* 掌握进度 */}
+            {/* 掌握进度（基于复习次数和盲点计算） */}
             {mistake.analysis && (
               <View className="mt-3 p-3 bg-gray-50 rounded-xl">
                 <View className="flex items-center justify-between mb-2">
                   <Text className="block text-xs font-medium text-gray-700">掌握进度</Text>
-                  <Text className="block text-xs text-primary">65%</Text>
+                  <Text className="block text-xs text-primary">
+                    {Math.min(100, mistake.reviewCount * 15 + (mistake.mastered ? 100 : mistake.blindPoints.length > 0 ? 30 : 50))}%
+                  </Text>
                 </View>
-                <Progress value={65} className="w-full h-2" />
-                <View className="flex items-center gap-1 mt-2">
-                  <Lightbulb size={14} color="#F59E0B" />
-                  <Text className="block text-xs text-gray-600">建议重点复习：余数概念</Text>
-                </View>
+                <Progress
+                  value={Math.min(100, mistake.reviewCount * 15 + (mistake.mastered ? 100 : mistake.blindPoints.length > 0 ? 30 : 50))}
+                  className="w-full h-2"
+                />
+                {mistake.blindPoints.length > 0 && (
+                  <View className="flex items-center gap-1 mt-2">
+                    <Lightbulb size={14} color="#F59E0B" />
+                    <Text className="block text-xs text-gray-600">
+                      建议重点复习：{mistake.blindPoints.slice(0, 3).join('、')}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
           </CardContent>
@@ -340,17 +371,19 @@ export default function MistakeDetailPage() {
                 </Text>
               </View>
 
-              {/* 相关概念 */}
-              <View className="mt-3">
-                <Text className="block text-xs font-medium text-gray-500 mb-2">相关概念</Text>
-                <View className="flex flex-wrap gap-2">
-                  {['除法 basics', '整除概念', '余数性质'].map((concept, idx) => (
-                    <View key={idx} className="px-3 py-2 bg-blue-50 rounded-full">
-                      <Text className="block text-xs text-blue-600">{concept}</Text>
-                    </View>
-                  ))}
+              {/* 相关概念（来自知识点） */}
+              {mistake.knowledgePoints.length > 0 && (
+                <View className="mt-3">
+                  <Text className="block text-xs font-medium text-gray-500 mb-2">相关概念</Text>
+                  <View className="flex flex-wrap gap-2">
+                    {mistake.knowledgePoints.map((concept, idx) => (
+                      <View key={idx} className="px-3 py-2 bg-blue-50 rounded-full">
+                        <Text className="block text-xs text-blue-600">{concept}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* 学习建议 */}
               <View className="mt-3 p-3 bg-green-50 rounded-xl">
@@ -359,27 +392,39 @@ export default function MistakeDetailPage() {
                   <Text className="block text-xs font-medium text-green-800">学习建议</Text>
                 </View>
                 <Text className="block text-xs text-green-700 leading-relaxed">
-                  建议先复习除法的基本概念，理解&ldquo;被除数 = 除数 × 商 + 余数&rdquo;的关系，然后通过练习巩固。
+                  {mistake.learningSuggestion || (mistake.blindPoints.length > 0
+                    ? `建议重点加强对「${mistake.blindPoints.slice(0, 2).join('」、「')}」的理解和练习，通过反复训练巩固掌握。`
+                    : mistake.analysis
+                      ? '建议根据错误分析中的薄弱点进行针对性复习，定期回看以加深理解。'
+                      : '建议先完成 AI 分析，获取针对性的学习建议。')}
                 </Text>
               </View>
 
-              {/* 学习路径 */}
-              <View className="mt-3 p-3 bg-blue-50 rounded-xl">
-                <View className="flex items-center gap-2 mb-2">
-                  <Target size={16} color="#3B82F6" />
-                  <Text className="block text-xs font-medium text-blue-800">推荐学习路径</Text>
-                </View>
-                <View className="space-y-2">
-                  {['1. 复习除法基本概念和术语', '2. 理解"被除数 = 除数 × 商 + 余数"', '3. 通过例子理解余数小于除数', '4. 练习有余数除法竖式', '5. 完成专项练习'].map((step, idx) => (
-                    <View key={idx} className="flex items-start gap-2">
-                      <View className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0">
-                        <Text className="block text-xs text-blue-800">{idx + 1}</Text>
+              {/* 学习路径（根据盲点动态生成） */}
+              {mistake.blindPoints.length > 0 && (
+                <View className="mt-3 p-3 bg-blue-50 rounded-xl">
+                  <View className="flex items-center gap-2 mb-2">
+                    <Target size={16} color="#3B82F6" />
+                    <Text className="block text-xs font-medium text-blue-800">推荐学习路径</Text>
+                  </View>
+                  <View className="space-y-2">
+                    {[
+                      `1. 理解「${mistake.blindPoints[0]}」的基本概念和常见题型`,
+                      `2. 分析做错原因，针对性查看解析`,
+                      `3. 练习${mistake.blindPoints.slice(0, 2).join('、')}的专项题目`,
+                      '4. 回顾正确答案，对比自己的解题思路',
+                      '5. 间隔复习（1天、2天、4天、7天…），巩固长期记忆',
+                    ].map((step, idx) => (
+                      <View key={idx} className="flex items-start gap-2">
+                        <View className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0">
+                          <Text className="block text-xs text-blue-800">{idx + 1}</Text>
+                        </View>
+                        <Text className="block text-xs text-blue-700 flex-1">{step}</Text>
                       </View>
-                      <Text className="block text-xs text-blue-700 flex-1">{step}</Text>
-                    </View>
-                  ))}
+                    ))}
+                  </View>
                 </View>
-              </View>
+              )}
             </CardContent>
           </Card>
         )}

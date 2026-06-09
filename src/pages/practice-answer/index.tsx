@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { ArrowLeft, CircleX, CircleCheck, CircleAlert } from 'lucide-react-taro'
@@ -9,53 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import './index.css'
 
-// Fallback: 当 URL 没传 id（用户直接进入）或 store 里找不到 task 时使用
-const FALLBACK_QUESTIONS: PracticeQuestion[] = [
-  {
-    id: '1',
-    subject: 'math',
-    knowledgePoint: '有余数除法',
-    content: '小明有23颗糖果，平均分给4个小朋友，每个小朋友能分到几颗糖果？还剩几颗？',
-    options: [
-      { key: 'A', value: '5颗，剩3颗' },
-      { key: 'B', value: '6颗，剩0颗' },
-      { key: 'C', value: '5颗，剩2颗' },
-      { key: 'D', value: '6颗，剩1颗' }
-    ],
-    answer: 'A',
-    difficulty: 'medium'
-  },
-  {
-    id: '2',
-    subject: 'math',
-    knowledgePoint: '有余数除法',
-    content: '用竖式计算：45 ÷ 6 = ?',
-    options: [
-      { key: 'A', value: '7 …… 3' },
-      { key: 'B', value: '7 …… 5' },
-      { key: 'C', value: '8 …… 3' },
-      { key: 'D', value: '6 …… 9' }
-    ],
-    answer: 'A',
-    difficulty: 'easy'
-  },
-  {
-    id: '3',
-    subject: 'math',
-    knowledgePoint: '有余数除法',
-    content: '一个数除以5，商是8，余数是3，这个数是（ ）。',
-    options: [
-      { key: 'A', value: '38' },
-      { key: 'B', value: '43' },
-      { key: 'C', value: '40' },
-      { key: 'D', value: '45' }
-    ],
-    answer: 'B',
-    difficulty: 'medium'
-  }
-]
-const FALLBACK_TITLE = '除法巩固练习'
-
 export default function PracticeAnswerPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
@@ -65,16 +18,43 @@ export default function PracticeAnswerPage() {
   const [isCompleted, setIsCompleted] = useState(false)
 
   const router = useRouter<{ id?: string }>()
-  const practiceTasks = useAppStore(s => s.practiceTasks)
+  const { practiceTasks, fetchPracticeHistory } = useAppStore()
+  const [isLoadingTask, setIsLoadingTask] = useState(false)
+  const [taskNotFound, setTaskNotFound] = useState(false)
 
-  // 从 URL 解析 task；如果 task 带 questions 就用它，否则用 fallback
+  // 尝试从 store 或服务端找 task
+  useEffect(() => {
+    const id = router.params.id
+    if (!id) {
+      setTaskNotFound(true)
+      return
+    }
+    const task = practiceTasks.find(t => t.id === id)
+    if (task && task.questions && task.questions.length > 0) {
+      return // store 已有
+    }
+    // store 中没有 → 尝试从服务端拉取
+    setIsLoadingTask(true)
+    fetchPracticeHistory().then(() => {
+      const refetched = useAppStore.getState().practiceTasks.find(t => t.id === id)
+      if (!refetched || !refetched.questions || refetched.questions.length === 0) {
+        setTaskNotFound(true)
+      }
+    }).catch(() => {
+      setTaskNotFound(true)
+    }).finally(() => {
+      setIsLoadingTask(false)
+    })
+  }, [router.params.id])
+
+  // 从 store 解析 task
   const { questions, title } = useMemo(() => {
     const id = router.params.id
     const task = id ? practiceTasks.find(t => t.id === id) : undefined
     if (task && task.questions && task.questions.length > 0) {
       return { questions: task.questions, title: task.title }
     }
-    return { questions: FALLBACK_QUESTIONS, title: FALLBACK_TITLE }
+    return { questions: [] as PracticeQuestion[], title: '' }
   }, [router.params.id, practiceTasks])
 
   const currentQuestion = questions[currentIndex]
@@ -216,12 +196,26 @@ export default function PracticeAnswerPage() {
     )
   }
 
-  // 安全兜底：当前题目不存在（异常场景）
-  if (!currentQuestion) {
+  // 加载中
+  if (isLoadingTask) {
     return (
       <View className="min-h-screen bg-background flex items-center justify-center px-6">
         <View className="text-center">
-          <Text className="block text-lg text-gray-500 mb-4">题目加载失败</Text>
+          <View className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin mx-auto mb-4" />
+          <Text className="block text-base text-gray-500">正在加载练习题目...</Text>
+        </View>
+      </View>
+    )
+  }
+
+  // 题目不存在（首页直接进入 / taskId 无效 / 服务端无此 task）
+  if (taskNotFound || !currentQuestion) {
+    return (
+      <View className="min-h-screen bg-background flex items-center justify-center px-6">
+        <View className="text-center">
+          <CircleAlert size={48} color="#F59E0B" className="mx-auto mb-4" />
+          <Text className="block text-lg text-gray-500 mb-2">练习题目未找到</Text>
+          <Text className="block text-sm text-gray-400 mb-6">请先生成新的练习，或从练习中心进入</Text>
           <Button variant="outline" onClick={goBack}>返回练习中心</Button>
         </View>
       </View>
@@ -231,7 +225,7 @@ export default function PracticeAnswerPage() {
   return (
     <View className="min-h-screen bg-background pb-6">
       {/* 头部 */}
-      <View className="px-4 py-4 bg-white sticky top-0 z-10">
+      <View className="px-4 py-4 bg-white">
         <View className="flex items-center justify-between mb-3">
           <View className="flex items-center gap-3">
             <View 

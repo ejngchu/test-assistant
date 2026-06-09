@@ -3,9 +3,9 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Plus, Camera, Search, ChevronRight, BookOpen, LayoutGrid, LayoutList, Clock } from 'lucide-react-taro'
 import { Input } from '@/components/ui/input'
-  import { useAppStore, Subject, subjectInfo } from '@/store/appStore'
-  import { Card, CardContent } from '@/components/ui/card'
-  import { Badge } from '@/components/ui/badge'
+import { useAppStore, Subject, subjectInfo } from '@/store/appStore'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { KNOWLEDGE_POINT_COLORS } from '@/constants'
 // 插图已上传到 COS（避免 inline 进 WeApp 主包超 2MB 限制）
 const emptyMistakesImg = 'https://venus-mate-1426731873.cos.ap-guangzhou.myqcloud.com/illustrations/empty-mistakes.png'
@@ -168,14 +168,18 @@ export default function MistakesPage() {
       </View>
       {/* 知识点筛选 - P3多选（2026-06-08）：多选+OR，标签并列 inline */}
 {knowledgePointsWithColors.length > 0 && (
+  // ⚠️ H5 兼容：flex 用 inline style 绕过 Taro 元素选择器优先级问题
+  // ⚠️ WeApp 兼容：避免使用 inline-flex（WXSS 支持不完整）；不用 gap（旧版 WXSS 不支持）
+  // 改用 margin 在子元素上做间距
   <View className="px-4 py-2 bg-white border-b border-gray-100">
-    <View className="flex flex-row flex-wrap items-center gap-1.5">
-      <BookOpen size={14} color="#9CA3AF" className="mr-1" />
+    <View style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
       {/* 全部 */}
       <View
-        className="px-2.5 py-1 rounded-full whitespace-nowrap"
         style={{
+          padding: '4px 10px',
+          borderRadius: '9999px',
           backgroundColor: selectedKnowledgePoints.size === 0 ? '#374151' : '#F3F4F6',
+          margin: '3px',
         }}
         onClick={() => setSelectedKnowledgePoints(new Set())}
       >
@@ -192,9 +196,11 @@ export default function MistakesPage() {
         return (
           <View
             key={idx}
-            className="px-2.5 py-1 rounded-full whitespace-nowrap"
             style={{
+              padding: '4px 10px',
+              borderRadius: '9999px',
               backgroundColor: isSelected ? kp.color.bg : '#F3F4F6',
+              margin: '3px',
             }}
             onClick={() => {
               const next = new Set(selectedKnowledgePoints)

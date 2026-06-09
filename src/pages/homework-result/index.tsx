@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { View, Text, Image } from '@tarojs/components'
+import { Network } from '@/network'
 import Taro, { useRouter } from '@tarojs/taro'
 import { CircleCheck, CircleX, CircleAlert, RotateCcw, House, BookOpen, LoaderCircle, Check, Pencil } from 'lucide-react-taro'
 import { subjectInfo, useAppStore, MistakeItem, parseSubject } from '@/store/appStore'
@@ -22,6 +23,8 @@ export default function HomeworkResultPage() {
   const [imagePath, setImagePath] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [savedCount, setSavedCount] = useState(0)
+  const [cacheExpired, setCacheExpired] = useState(false)
+  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // P1-选择题（2026-06-07）：默认勾选所有"有误"题目，用户可手动增删
   const [selectedProblemIds, setSelectedProblemIds] = useState<Set<string>>(() => new Set())
   // P2-学科修正（2026-06-08）：LLM 识别错的科目，用户可在此手动覆盖
@@ -76,38 +79,88 @@ export default function HomeworkResultPage() {
     }
 
     setIsSaving(true)
+    let successCount = 0
 
     for (let i = 0; i < selectedProblems.length; i++) {
       const problem = selectedProblems[i]
-      const newMistake: MistakeItem = {
+      const mistakeItem: MistakeItem = {
         id: `mistake_${Date.now()}_${i}`,
         subject: safeSubject || 'chinese',
-        title: `${subjectInfo[safeSubject || 'chinese']?.name || subject}作业错题 - 第${problem.id}题`,
+        title: problem.questionText
+          ? `${subjectInfo[safeSubject || 'chinese']?.name || subject}错题：${problem.questionText}`
+          : `${subjectInfo[safeSubject || 'chinese']?.name || subject}作业错题 - 第${problem.id}题`,
         questionImage: imagePath,
         correctAnswer: problem.correctAnswer || problem.hint || '请查看正确答案',
-        knowledgePoints: problem.knowledgePoints || [],  // P3-减少LLM请求：来自 checkHomework 同一次调用
-        blindPoints: problem.blindPoints || [],           // 同上
+        knowledgePoints: problem.knowledgePoints || [],
+        blindPoints: problem.blindPoints || [],
         createdAt: new Date().toISOString().split('T')[0],
         reviewCount: 0,
         date: new Date().toISOString().split('T')[0],
         mastered: false,
-        analysis: problem.analysis
+        analysis: problem.analysis,
+        // 补全保存完整检查结果（2026-06-09）
+        questionText: problem.questionText,
+        status: problem.status,
+        hint: problem.hint,
+        learningSuggestion: result.learningSuggestion,
       }
 
-      addMistake(newMistake)
+      // 同步写入后端数据库
+      try {
+        const res = await Network.request({
+          url: '/api/study/mistake/save',
+          method: 'POST',
+          data: {
+            userId: 'user1',
+            subject: safeSubject || 'chinese',
+            questionImage: imagePath,
+            title: mistakeItem.title,
+            correctAnswer: mistakeItem.correctAnswer,
+            knowledgePoints: mistakeItem.knowledgePoints,
+            blindPoints: mistakeItem.blindPoints,
+            analysis: mistakeItem.analysis,
+            questionText: mistakeItem.questionText,
+            status: mistakeItem.status,
+            hint: mistakeItem.hint,
+            learningSuggestion: mistakeItem.learningSuggestion,
+          },
+        })
+        const dbMistakeId = res.data?.data?.id
+        if (dbMistakeId) {
+          // 用数据库返回的 id 覆盖临时 id
+          mistakeItem.id = String(dbMistakeId)
+        }
+        successCount++
+      } catch (err) {
+        console.warn('[saveMistakesToBook] 后端保存失败，仅本地保存:', err)
+      }
+
+      // 始终写入本地 Zustand（离线可用）
+      addMistake(mistakeItem)
     }
 
-    setSavedCount(selectedProblems.length)
+    setSavedCount(successCount)
     setIsSaving(false)
     Taro.showToast({
-      title: `已保存 ${selectedProblems.length} 道题到错题本`,
-      icon: 'success'
+      title: `已保存 ${successCount} 道题到错题本`,
+      icon: 'success',
     })
     // 延迟跳转，让用户看到 toast 提示
-    setTimeout(() => {
+    navigateTimeoutRef.current = setTimeout(() => {
+      navigateTimeoutRef.current = null
       Taro.switchTab({ url: '/pages/mistakes/index' })
     }, 1200)
   }
+
+  // 卸载时清理导航定时器
+  useEffect(() => {
+    return () => {
+      if (navigateTimeoutRef.current) {
+        clearTimeout(navigateTimeoutRef.current)
+        navigateTimeoutRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     // 从全局缓存按 resultId 取出结果（取代旧的 URLSearchParams 传大对象，避免小程序端被截断）
@@ -136,24 +189,9 @@ export default function HomeworkResultPage() {
       return
     }
 
-    // 没拿到缓存（直接进入或被清理了）：回退到默认 mock 结果
-    console.warn('[homework-result] resultId 缓存未命中，使用默认结果', { resultId })
-    const fallback: HomeworkCheckResult = {
-      completed: true,
-      totalProblems: 5,
-      correctCount: 3,
-      incorrectCount: 1,
-      unclearCount: 1,
-      problems: [
-        { id: '1', status: 'correct', questionText: '计算 23 × 17 = ?', correctAnswer: '391', analysis: '回答正确' },
-        { id: '2', status: 'correct', questionText: '用竖式计算 456 ÷ 8 = ?', correctAnswer: '57', analysis: '回答正确' },
-        { id: '3', status: 'incorrect', questionText: '一根绳子长 3/4 米，平均分成 3 段，每段多少米？', correctAnswer: '1/4 米', analysis: '分数除法需要将被除数乘以除数的倒数', hint: '请检查计算步骤' },
-        { id: '4', status: 'correct', questionText: '小红有 48 个糖果，吃了 1/3，还剩多少个？', correctAnswer: '32 个', analysis: '回答正确' },
-        { id: '5', status: 'unclear', questionText: '一个三角形的三个内角和是多少度？', correctAnswer: '180°', hint: '图片不清晰' }
-      ]
-    }
-    setResult(fallback)
-    initSelection(fallback)
+    // 没拿到缓存（直接进入或被清理了）：显示过期状态而非虚假 mock
+    console.warn('[homework-result] resultId 缓存未命中', { resultId })
+    setCacheExpired(true)
     setIsLoading(false)
   }, [])
 
@@ -181,7 +219,7 @@ export default function HomeworkResultPage() {
 
   if (isLoading) {
     return (
-      <View className="min-h-screen bg-background flex flex-col items-center justify-center">
+      <View className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
         <View className="w-16 h-16 rounded-full border-4 border-primary bg-opacity-20 border-t-primary animate-spin mb-4" />
         <Text className="block text-base text-gray-600">正在分析作业...</Text>
         <Text className="block text-sm text-gray-400 mt-2">请稍候</Text>
@@ -189,12 +227,41 @@ export default function HomeworkResultPage() {
     )
   }
 
+  // 缓存过期：不展示虚假 mock，提示用户重新拍照
+  if (cacheExpired) {
+    return (
+      <View className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6">
+        <CircleAlert size={48} color="#F59E0B" className="mb-4" />
+        <Text className="block text-lg font-medium text-gray-700 mb-2">结果已过期</Text>
+        <Text className="block text-sm text-gray-400 text-center mb-8 leading-relaxed">
+          该检查结果已被清理或失效，{'\n'}请重新拍照上传。
+        </Text>
+        <View className="flex gap-3 w-full max-w-xs">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => Taro.switchTab({ url: '/pages/homework/index' })}
+          >
+            <House size={16} className="mr-1" />
+            去拍照
+          </Button>
+          <Button
+            className="flex-1 bg-primary text-white"
+            onClick={() => Taro.navigateBack()}
+          >
+            返回
+          </Button>
+        </View>
+      </View>
+    )
+  }
+
   return (
-    <View className="min-h-screen bg-background pb-24">
+    <View className="min-h-screen bg-gray-50 pb-24" style={{ color: '#111827' }}>
       {/* 头部 */}
       <View className="px-4 py-4 bg-white">
         <View className="flex items-center justify-between">
-          <Text className="block text-lg font-semibold text-foreground">作业检查结果</Text>
+          <Text className="block text-lg font-semibold" style={{ color: '#1f2937' }}>作业检查结果</Text>
           <View
             className="flex items-center gap-2"
             onClick={() => setShowSubjectEdit((v) => !v)}
@@ -251,7 +318,7 @@ export default function HomeworkResultPage() {
       {/* 图片展示区域 */}
       {imagePath && (
         <View className="px-4 py-3">
-          <Text className="block text-sm font-medium text-foreground mb-2">作业图片</Text>
+          <Text className="block text-sm font-medium mb-2" style={{ color: '#1f2937' }}>作业图片</Text>
           <View className="rounded-xl overflow-hidden bg-gray-100">
             <Image
               src={imagePath}
@@ -418,7 +485,7 @@ export default function HomeworkResultPage() {
                             <info.icon size={16} color="#FFFFFF" />
                           </View>
 
-                          <Text className="block text-sm font-medium text-foreground">
+                          <Text className="block text-sm font-medium" style={{ color: '#1f2937' }}>
                             第 {idx + 1} 题
                           </Text>
                           <View className="flex-1" />
@@ -432,12 +499,12 @@ export default function HomeworkResultPage() {
                          */}
                         <View className="mt-2 pt-2 border-t border-gray-200 ml-11">
                           {problem.questionText ? (
-                            <Text className="block text-xs mb-2" style={{ color: '#6B7280', lineHeight: 1.6 }}>
-                              <Text className="block text-xs mb-0.5" style={{ color: '#6B7280' }}>题目：</Text>
-                              {problem.questionText}
-                            </Text>
+                            <View className="mb-2">
+                              <Text className="block text-xs mb-1 font-medium" style={{ color: '#374151' }}>题目：</Text>
+                              <Text className="block text-xs leading-relaxed" style={{ color: '#374151' }}>{problem.questionText}</Text>
+                            </View>
                           ) : (
-                            <Text className="block text-xs mb-2 italic" style={{ color: '#9CA3AF' }}>
+                            <Text className="block text-xs mb-2 italic" style={{ color: '#6B7280' }}>
                               第 {idx + 1} 题（题目文字未识别到）
                             </Text>
                           )}
@@ -447,17 +514,17 @@ export default function HomeworkResultPage() {
                             </Text>
                           )}
                           {problem.analysis && (
-                            <Text className="block text-xs" style={{ color: info.mutedColor, lineHeight: 1.5 }}>
+                            <Text className="block text-xs" style={{ color: info.textColor, lineHeight: 1.5 }}>
                               解析：{problem.analysis}
                             </Text>
                           )}
                           {problem.hint && (
-                            <Text className="block text-xs mt-1" style={{ color: info.mutedColor }}>
+                            <Text className="block text-xs mt-1" style={{ color: '#4B5563' }}>
                               提示：{problem.hint}
                             </Text>
                           )}
                           {!problem.correctAnswer && !problem.analysis && (
-                            <Text className="block text-xs italic" style={{ color: info.mutedColor }}>
+                            <Text className="block text-xs italic" style={{ color: '#6B7280' }}>
                               暂无详细解析（请查看原题）
                             </Text>
                           )}
@@ -484,7 +551,7 @@ export default function HomeworkResultPage() {
                   <View className="flex items-center gap-3">
                     <CircleCheck size={24} color="#22C55E" />
                     <View className="flex-1">
-                      <Text className="block text-sm font-medium text-foreground">太棒了，全部正确！🎉</Text>
+                      <Text className="block text-sm font-medium" style={{ color: '#1f2937' }}>太棒了，全部正确！🎉</Text>
                       <Text className="block text-xs text-gray-600 mt-1">继续保持，错题本今天不用新增。</Text>
                     </View>
                   </View>
@@ -499,7 +566,7 @@ export default function HomeworkResultPage() {
                 <View className="flex items-start gap-3">
                   <CircleAlert size={20} color="#F59E0B" className="flex-shrink-0" />
                   <View className="flex-1">
-                    <Text className="block text-sm font-medium text-foreground mb-1">学习建议</Text>
+                    <Text className="block text-sm font-medium mb-1" style={{ color: '#1f2937' }}>学习建议</Text>
                     {result?.learningSuggestion ? (
                       <Text className="block text-sm text-gray-600 leading-relaxed">
                         {result.learningSuggestion}
