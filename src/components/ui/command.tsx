@@ -117,7 +117,8 @@ const Command = React.forwardRef<
 })
 Command.displayName = "Command"
 
-const CommandDialog = ({ children, ...props }) => {
+// DialogPrimitive 不存在于此项目；用松散 props 类型 + 内部 as any 保持向后兼容
+const CommandDialog = ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => {
   const { open: openProp, defaultOpen, onOpenChange, ...rest } = props as any
   const [openState, setOpenState] = React.useState(defaultOpen || false)
   const open = openProp !== undefined ? openProp : openState

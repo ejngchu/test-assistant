@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { View, Text } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useRouter } from '@tarojs/taro'
 import { ArrowLeft, CircleX, CircleCheck, CircleAlert } from 'lucide-react-taro'
-import { useAppStore, subjectInfo, PracticeQuestion } from '../../store/appStore'
-import { Card, CardContent } from '../../components/ui/card'
-import { Badge } from '../../components/ui/badge'
-import { Button } from '../../components/ui/button'
+import { useAppStore, subjectInfo, PracticeQuestion } from '@/store/appStore'
+import { playSound } from '@/lib/sound'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import './index.css'
 
-// 模拟练习题数据
-const mockQuestions: PracticeQuestion[] = [
+// Fallback: 当 URL 没传 id（用户直接进入）或 store 里找不到 task 时使用
+const FALLBACK_QUESTIONS: PracticeQuestion[] = [
   {
     id: '1',
     subject: 'math',
@@ -53,6 +54,7 @@ const mockQuestions: PracticeQuestion[] = [
     difficulty: 'medium'
   }
 ]
+const FALLBACK_TITLE = '除法巩固练习'
 
 export default function PracticeAnswerPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -60,21 +62,23 @@ export default function PracticeAnswerPage() {
   const [showResult, setShowResult] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [taskTitle, setTaskTitle] = useState('')
   const [isCompleted, setIsCompleted] = useState(false)
 
-  const { practiceTasks } = useAppStore()
-  const currentQuestion = mockQuestions[currentIndex]
-  const totalQuestions = mockQuestions.length
+  const router = useRouter<{ id?: string }>()
+  const practiceTasks = useAppStore(s => s.practiceTasks)
 
-  useEffect(() => {
-    const { id } = Taro.getCurrentInstance().router?.params || {}
-    if (id) {
-      const task = practiceTasks.find(t => t.id === id)
-      if (task) setTaskTitle(task.title)
+  // 从 URL 解析 task；如果 task 带 questions 就用它，否则用 fallback
+  const { questions, title } = useMemo(() => {
+    const id = router.params.id
+    const task = id ? practiceTasks.find(t => t.id === id) : undefined
+    if (task && task.questions && task.questions.length > 0) {
+      return { questions: task.questions, title: task.title }
     }
-    if (!taskTitle) setTaskTitle('除法巩固练习')
-  }, [])
+    return { questions: FALLBACK_QUESTIONS, title: FALLBACK_TITLE }
+  }, [router.params.id, practiceTasks])
+
+  const currentQuestion = questions[currentIndex]
+  const totalQuestions = questions.length
 
   // 选择答案
   const selectAnswer = (key: string) => {
@@ -93,9 +97,11 @@ export default function PracticeAnswerPage() {
     setIsCorrect(correct)
     setShowResult(true)
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: selectedAnswer }))
+    // F-04: 答对/答错音效
+    playSound(correct ? 'correct' : 'wrong')
   }
 
-  // 下一题
+  // 下一题 / 完成练习
   const nextQuestion = () => {
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex(prev => prev + 1)
@@ -103,8 +109,9 @@ export default function PracticeAnswerPage() {
       setShowResult(false)
       setIsCorrect(false)
     } else {
-      // 练习完成
+      // 最后一题答完：进入完成页
       setIsCompleted(true)
+      setShowResult(false)
     }
   }
 
@@ -113,10 +120,11 @@ export default function PracticeAnswerPage() {
     Taro.navigateBack()
   }
 
-  // 计算正确率
+  // 计算正确率（基于解析后的 questions）
   const getAccuracy = () => {
+    if (totalQuestions === 0) return 0
     const correctCount = Object.entries(answers).filter(([qId, ans]) => {
-      const q = mockQuestions.find(mq => mq.id === qId)
+      const q = questions.find(qq => qq.id === qId)
       return q && ans === q.answer
     }).length
     return Math.round((correctCount / totalQuestions) * 100)
@@ -136,7 +144,7 @@ export default function PracticeAnswerPage() {
   if (isCompleted) {
     const accuracy = getAccuracy()
     const correctCount = Object.entries(answers).filter(([qId, ans]) => {
-      const q = mockQuestions.find(mq => mq.id === qId)
+      const q = questions.find(qq => qq.id === qId)
       return q && ans === q.answer
     }).length
 
@@ -208,6 +216,18 @@ export default function PracticeAnswerPage() {
     )
   }
 
+  // 安全兜底：当前题目不存在（异常场景）
+  if (!currentQuestion) {
+    return (
+      <View className="min-h-screen bg-background flex items-center justify-center px-6">
+        <View className="text-center">
+          <Text className="block text-lg text-gray-500 mb-4">题目加载失败</Text>
+          <Button variant="outline" onClick={goBack}>返回练习中心</Button>
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View className="min-h-screen bg-background pb-6">
       {/* 头部 */}
@@ -220,7 +240,7 @@ export default function PracticeAnswerPage() {
             >
               <ArrowLeft size={20} color="#4B5563" />
             </View>
-            <Text className="block text-base font-semibold text-foreground">{taskTitle}</Text>
+            <Text className="block text-base font-semibold text-foreground">{title}</Text>
           </View>
           <View className="px-3 py-1 bg-primary bg-opacity-10 rounded-full">
             <Text className="block text-sm font-medium text-primary">
@@ -324,8 +344,7 @@ export default function PracticeAnswerPage() {
                 <View>
                   <Text className="block text-sm font-medium text-foreground mb-1">解题思路</Text>
                   <Text className="block text-sm text-gray-600 leading-relaxed">
-                    23 ÷ 4 = 5 …… 3，表示23颗糖果平均分给4个小朋友，每个小朋友分5颗，还剩3颗。
-                    记住：余数一定要比除数小！
+                    正确答案是 {currentQuestion.answer}。{currentQuestion.knowledgePoint}需要多加练习，加油！
                   </Text>
                 </View>
               </View>
@@ -335,7 +354,10 @@ export default function PracticeAnswerPage() {
       </View>
 
       {/* 底部按钮 */}
-      <View className="px-4 fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 pb-6">
+      <View
+        className="bg-white border-t border-gray-100 p-4 pb-6"
+        style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 10 }}
+      >
         {!showResult ? (
           <Button
             className="w-full bg-primary text-white"

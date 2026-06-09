@@ -1,4 +1,4 @@
-export default defineAppConfig({
+export default {
   pages: [
     'pages/index/index',
     'pages/homework/index',
@@ -13,9 +13,13 @@ export default defineAppConfig({
   window: {
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#FAFAF9',
-    navigationBarTitleText: '学习助手',
+    navigationBarTitleText: 'Venus-Mate',
     navigationBarTextStyle: 'black'
   },
+  // V2 单入口交互：TabBar 精简为 3 个
+  // - 首页：拍错题主入口
+  // - 错题本：所有错题 + 复习入口
+  // - 我的：设置 / 统计 / 导出（替代旧"练习"Tab）
   tabBar: {
     color: '#6B7280',
     selectedColor: '#F59E0B',
@@ -29,29 +33,17 @@ export default defineAppConfig({
         selectedIconPath: './assets/tabbar/home-active.png'
       },
       {
-        pagePath: 'pages/homework/index',
-        text: '作业',
-        iconPath: './assets/tabbar/camera.png',
-        selectedIconPath: './assets/tabbar/camera-active.png'
-      },
-      {
         pagePath: 'pages/mistakes/index',
         text: '错题本',
         iconPath: './assets/tabbar/book-open.png',
         selectedIconPath: './assets/tabbar/book-open-active.png'
       },
       {
-        pagePath: 'pages/review/index',
-        text: '复习',
-        iconPath: './assets/tabbar/calendar.png',
-        selectedIconPath: './assets/tabbar/calendar-active.png'
-      },
-      {
-        pagePath: 'pages/practice/index',
-        text: '练习',
+        pagePath: 'pages/settings/index',
+        text: '我的',
         iconPath: './assets/tabbar/pencil.png',
         selectedIconPath: './assets/tabbar/pencil-active.png'
       }
     ]
   }
-})
+}

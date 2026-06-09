@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Clock, Brain, Calendar, ChevronRight, CircleAlert } from 'lucide-react-taro'
-import { useAppStore, subjectInfo, ReviewReminder } from '../../store/appStore'
-import { Card, CardContent } from '../../components/ui/card'
-import { Badge } from '../../components/ui/badge'
+import { useAppStore, subjectInfo, ReviewReminder } from '@/store/appStore'
+import { Card, CardContent } from '@/components/ui/card'
+import { WARM_GRADIENT_BG } from '@/constants'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import './index.css'
 
 // 记忆曲线周期标签
@@ -82,28 +84,22 @@ export default function ReviewPage() {
 
       {/* 标签切换 */}
       <View className="px-4 py-3 bg-white border-b border-gray-100">
-        <View className="flex gap-2">
-          {[
-            { key: 'today', label: '今日待复习', count: todayReminders.length },
-            { key: 'upcoming', label: '即将复习', count: upcomingReminders.length },
-            { key: 'completed', label: '已完成', count: completedReminders.length }
-          ].map(tab => (
-            <View
-              key={tab.key}
-              className={`flex-1 py-2 px-3 rounded-xl text-center ${
-                activeTab === tab.key ? 'bg-primary' : 'bg-gray-100'
-              }`}
-              onClick={() => setActiveTab(tab.key as 'today' | 'upcoming' | 'completed')}
-            >
-              <Text className={`block text-sm font-medium ${
-                activeTab === tab.key ? 'text-white' : 'text-gray-600'
-              }`}
-              >
-                {tab.label} ({tab.count})
-              </Text>
-            </View>
-          ))}
-        </View>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'today' | 'upcoming' | 'completed')}
+        >
+          <TabsList className="w-full flex">
+            <TabsTrigger value="today" className="flex-1">
+              <Text>今日待复习 ({todayReminders.length})</Text>
+            </TabsTrigger>
+            <TabsTrigger value="upcoming" className="flex-1">
+              <Text>即将复习 ({upcomingReminders.length})</Text>
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="flex-1">
+              <Text>已完成 ({completedReminders.length})</Text>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </View>
 
       {/* 复习列表 */}
@@ -207,7 +203,7 @@ export default function ReviewPage() {
 
       {/* 统计卡片 */}
       <View className="px-4 mt-4">
-        <Card className="rounded-2xl" style={{ background: 'linear-gradient(to right, rgba(245, 158, 11, 0.1), rgba(34, 197, 94, 0.1))' }}>
+        <Card className="rounded-2xl" style={{ background: WARM_GRADIENT_BG }}>
           <CardContent className="p-4">
             <View className="flex items-center justify-around">
               <View className="text-center">

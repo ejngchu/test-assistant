@@ -24,20 +24,23 @@ const Accordion = React.forwardRef<
     )
     const value = valueProp !== undefined ? valueProp : valueState
 
-    const handleValueChange = (itemValue: string) => {
+    const handleValueChange = (itemValue: string | string[]) => {
+        // AccordionItem 通常传单个 string，但 context 签名是 string | string[]（多选模式）
+        // 统一归一化为单个 string 来走 toggle/collapse 逻辑
+        const singleValue = Array.isArray(itemValue) ? (itemValue[itemValue.length - 1] ?? '') : itemValue
         let newValue: string | string[]
         if (type === "multiple") {
             const current = Array.isArray(value) ? value : []
-            if (current.includes(itemValue)) {
-                newValue = current.filter(v => v !== itemValue)
+            if (current.includes(singleValue)) {
+                newValue = current.filter(v => v !== singleValue)
             } else {
-                newValue = [...current, itemValue]
+                newValue = [...current, singleValue]
             }
         } else {
-            if (value === itemValue && collapsible) {
+            if (value === singleValue && collapsible) {
                 newValue = ""
             } else {
-                newValue = itemValue
+                newValue = singleValue
             }
         }
 

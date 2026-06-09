@@ -39,7 +39,8 @@ const Toggle = React.forwardRef<
     const [pressedState, setPressedState] = React.useState(defaultPressed || false)
     const pressed = pressedProp !== undefined ? pressedProp : pressedState
     
-    const handleClick = (e) => {
+    // Taro View 的 onClick 是 ITouchEvent（带 touches/changedTouches），不是 React.MouseEvent
+    const handleClick: NonNullable<React.ComponentPropsWithoutRef<typeof View>['onClick']> = (e) => {
         if (disabled) return
         const newPressed = !pressed
         if (pressedProp === undefined) {

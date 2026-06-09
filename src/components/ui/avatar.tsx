@@ -33,12 +33,14 @@ const AvatarImage = React.forwardRef<
 >(({ className, src, ...props }, ref) => {
   const context = React.useContext(AvatarContext)
   
-  const handleLoad = (e) => {
+  // 用 Taro Image 自身的 onLoad/onError prop 类型直接推导 handler 参数类型
+  // ——避免硬编码 `BaseEventOrig<onLoadEventDetail>` 这种容易被 weapp-tw 升级打碎的类型
+  const handleLoad: NonNullable<React.ComponentPropsWithoutRef<typeof Image>['onLoad']> = (e) => {
       context?.setStatus("loaded")
       props.onLoad?.(e)
   }
 
-  const handleError = (e) => {
+  const handleError: NonNullable<React.ComponentPropsWithoutRef<typeof Image>['onError']> = (e) => {
       context?.setStatus("error")
       props.onError?.(e)
   }

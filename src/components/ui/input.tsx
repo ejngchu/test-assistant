@@ -2,17 +2,36 @@ import * as React from "react"
 import { Input as TaroInput, View } from "@tarojs/components"
 import { cn } from "@/lib/utils"
 
-export interface InputProps
-  extends React.ComponentPropsWithoutRef<typeof TaroInput> {
+export interface InputProps {
   className?: string
-  type?: React.ComponentProps<typeof TaroInput>['type']
+  type?: string
+  value?: string
+  placeholder?: string
+  disabled?: boolean
   autoFocus?: boolean
+  focus?: boolean
+  onInput?: (e: { detail: { value: string } }) => void
+  onChange?: (e: { detail: { value: string } }) => void
+  onFocus?: (e: unknown) => void
+  onBlur?: (e: unknown) => void
+  onConfirm?: (e: { detail: { value: string } }) => void
 }
 
-const Input = React.forwardRef<React.ElementRef<typeof TaroInput>, InputProps>(
-  ({ className, type, autoFocus, focus, onFocus, onBlur, ...props }, ref) => {
+const Input = React.forwardRef<unknown, InputProps>(
+  (props, ref) => {
+    const {
+      className,
+      type,
+      autoFocus,
+      focus,
+      onFocus,
+      onBlur,
+      onChange,
+      disabled: disabledProp,
+      ...rest
+    } = props as InputProps & { disabled?: boolean }
     const [isFocused, setIsFocused] = React.useState(false)
-    const disabled = !!(props as any).disabled
+    const disabled = !!disabledProp
 
     React.useEffect(() => {
       if (autoFocus || focus) setIsFocused(true)
@@ -32,20 +51,19 @@ const Input = React.forwardRef<React.ElementRef<typeof TaroInput>, InputProps>(
         }}
       >
         <TaroInput
-          type={type}
+          {...({ type, ref, focus: autoFocus || focus } as any)}
           className="w-full flex-1 bg-transparent text-sm text-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 selection:bg-selection selection:text-selection-foreground"
           placeholderClass="text-muted-foreground"
-          ref={ref}
-          focus={autoFocus || focus}
-          onFocus={(e) => {
+          onFocus={(e: unknown) => {
             setIsFocused(true)
             onFocus?.(e)
           }}
-          onBlur={(e) => {
+          onBlur={(e: unknown) => {
             setIsFocused(false)
             onBlur?.(e)
           }}
-          {...props}
+          onChange={onChange as any}
+          {...(rest as any)}
         />
       </View>
     )

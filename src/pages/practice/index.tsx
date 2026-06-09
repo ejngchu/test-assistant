@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Sparkles, TrendingUp, ChevronRight, BookOpen, Plus, Calendar } from 'lucide-react-taro'
-import { useAppStore, Subject, subjectInfo, PracticeTask } from '../../store/appStore'
-import { Card, CardContent } from '../../components/ui/card'
-import { Badge } from '../../components/ui/badge'
-import { Network } from '../../network'
+import { useAppStore, Subject, subjectInfo, PracticeTask } from '@/store/appStore'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Network } from '@/network'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { WARM_GRADIENT_BG } from '@/constants'
 import './index.css'
 
 export default function PracticePage() {
@@ -85,7 +87,7 @@ export default function PracticePage() {
 
       {/* 学习统计 */}
       <View className="px-4 py-4">
-        <View className="rounded-2xl p-4" style={{ background: 'linear-gradient(to right, rgba(245, 158, 11, 0.1), rgba(34, 197, 94, 0.1))' }}>
+        <View className="rounded-2xl p-4" style={{ background: WARM_GRADIENT_BG }}>
           <View className="flex items-center gap-3 mb-3">
             <View className="w-10 h-10 rounded-xl bg-white flex items-center justify-center">
               <TrendingUp size={20} color="#F59E0B" />
@@ -114,34 +116,23 @@ export default function PracticePage() {
 
       {/* 标签切换 */}
       <View className="px-4">
-        <View className="flex gap-2 bg-gray-100 p-1 rounded-xl">
-          <View
-            className={`flex-1 py-2 px-3 rounded-lg text-center transition-all ${
-              activeTab === 'recommended' ? 'bg-white shadow-sm' : ''
-            }`}
-            onClick={() => setActiveTab('recommended')}
-          >
-            <Text className={`block text-sm font-medium ${
-              activeTab === 'recommended' ? 'text-primary' : 'text-gray-600'
-            }`}
-            >
-              推荐练习
-            </Text>
-          </View>
-          <View
-            className={`flex-1 py-2 px-3 rounded-lg text-center transition-all ${
-              activeTab === 'history' ? 'bg-white shadow-sm' : ''
-            }`}
-            onClick={() => setActiveTab('history')}
-          >
-            <Text className={`block text-sm font-medium ${
-              activeTab === 'history' ? 'text-primary' : 'text-gray-600'
-            }`}
-            >
-              历史记录
-            </Text>
-          </View>
-        </View>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'recommended' | 'history')}
+        >
+          <TabsList className="w-full flex bg-gray-100 p-1 rounded-xl">
+            <TabsTrigger value="recommended" className="flex-1">
+              <Text className={activeTab === 'recommended' ? 'text-primary' : 'text-gray-600'}>
+                推荐练习
+              </Text>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex-1">
+              <Text className={activeTab === 'history' ? 'text-primary' : 'text-gray-600'}>
+                历史记录
+              </Text>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </View>
 
       {/* 任务列表 */}

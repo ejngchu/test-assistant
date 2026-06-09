@@ -55,7 +55,7 @@ const Button = React.forwardRef<React.ElementRef<typeof View>, ButtonProps>(
         hoverClass={
           disabled
             ? undefined
-            : "bg-primary/90"
+            : "bg-primary bg-opacity-90"
         }
         onClick={disabled ? undefined : onClick}
         {...props}

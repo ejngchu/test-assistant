@@ -20,7 +20,7 @@ const Checkbox = React.forwardRef<
   const isControlled = checkedProp !== undefined
   const checked = isControlled ? checkedProp : checkedState
 
-  const handleClick = (e) => {
+  const handleClick = (e: React.MouseEvent) => {
     if (disabled) return
     e.stopPropagation()
     const newChecked = !checked

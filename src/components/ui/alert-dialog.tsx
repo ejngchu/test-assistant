@@ -82,7 +82,7 @@ const AlertDialogTrigger = React.forwardRef<
 })
 AlertDialogTrigger.displayName = "AlertDialogTrigger"
 
-const AlertDialogPortal = ({ children }) => {
+const AlertDialogPortal = ({ children }: { children: React.ReactNode }) => {
     const context = React.useContext(AlertDialogContext)
     const present = usePresence(context?.open, 200)
     if (!present) return null

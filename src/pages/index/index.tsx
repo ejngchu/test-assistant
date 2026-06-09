@@ -1,224 +1,98 @@
-import { useState, useEffect } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { Camera, BookOpen, Calendar, TrendingUp, Star, ChevronRight, Sparkles } from 'lucide-react-taro'
-import { useAppStore } from '../../store/appStore'
-import { Card, CardContent } from '../../components/ui/card'
-import './index.css'
+import { useEffect } from 'react'
+import { Camera, Lightbulb, BookOpen, Clock, TrendingUp } from 'lucide-react-taro'
+import { useAppStore } from '@/store/appStore'
 
 export default function Index() {
-  const [greeting, setGreeting] = useState('')
-  const { stats } = useAppStore()
-  
-  // 获取今日待复习数量
-  const todayReviewCount = stats.reviewToday
+  const { mistakes, reviewReminders, stats } = useAppStore()
 
+  // 进入首页时拉取最新数据（用 getState() 拿稳定引用，避免 useEffect 死循环）
   useEffect(() => {
-    // 设置问候语
-    const hour = new Date().getHours()
-    if (hour < 6) setGreeting('晚上好')
-    else if (hour < 9) setGreeting('早上好')
-    else if (hour < 12) setGreeting('上午好')
-    else if (hour < 14) setGreeting('中午好')
-    else if (hour < 18) setGreeting('下午好')
-    else setGreeting('晚上好')
+    void useAppStore.getState().fetchAll()
   }, [])
 
-  // 页面跳转
-  const navigateTo = (url: string) => {
-    Taro.navigateTo({ url })
+  // 待复习数量：从 reviewReminders 中筛选 due/pending 状态
+  const pendingReviewCount = reviewReminders.filter(
+    (r) => r.status === 'due' || r.status === 'pending'
+  ).length
+
+  // 最近一条需要巩固的知识点
+  const latestKnowledgePoint =
+    mistakes.length > 0
+      ? `"${mistakes[0].knowledgePoints[0] || mistakes[0].title}"需要巩固哦~`
+      : '开始记录错题，获取个性化学习建议吧！'
+
+  // 拍照/选图 → 跳转拍照页（V2 单入口：唯一的 CTA）
+  const handleTakePhoto = () => {
+    Taro.navigateTo({ url: '/pages/homework/index' })
   }
 
   return (
-    <View className="min-h-screen bg-background pb-20">
-      {/* 顶部欢迎区域 */}
-      <View className="px-4 pt-8 pb-4">
-        <Text className="block text-gray-500 text-sm">{greeting}，小朋友</Text>
-        <Text className="block text-2xl font-bold text-foreground mt-1">
-          今天是学习的好日子！
+    <View className="min-h-screen bg-gray-50 pb-20">
+      {/* 顶部区域：问候语 */}
+      <View className="px-5 pt-10 pb-4">
+        <Text className="block text-gray-500 text-sm">你好呀 👋</Text>
+        <Text className="block text-2xl font-bold text-gray-900 mt-1">
+          坚持每天进步一点点！
+        </Text>
+        <Text className="block text-xs text-gray-400 mt-1">
+          拍一道错题，剩下的交给我
         </Text>
       </View>
 
+      {/* CTA 拍错题按钮（V2 唯一主操作） */}
+      <View className="flex justify-center mt-4 mb-8">
+        <View
+          className="w-48 h-48 rounded-3xl bg-gradient-to-br from-orange-500 to-pink-500 shadow-lg shadow-orange-200 flex flex-col items-center justify-center gap-3 active:opacity-80"
+          onClick={handleTakePhoto}
+        >
+          <Camera size={72} color="#FFFFFF" />
+          <Text className="text-white text-lg font-semibold">拍一道错题</Text>
+          <Text className="text-white/80 text-xs">其它全自动</Text>
+        </View>
+      </View>
+
+      {/* 统计卡片行：3 列（极简） */}
+      <View className="px-5 mb-5">
+        <View className="grid grid-cols-3 gap-3">
+          {/* 错题数 */}
+          <View className="bg-white rounded-xl p-3 shadow-sm">
+            <View className="flex items-center gap-2 mb-2">
+              <BookOpen size={14} color="#EF4444" />
+              <Text className="text-xs text-gray-500">错题</Text>
+            </View>
+            <Text className="block text-2xl font-bold text-gray-900">{mistakes.length}</Text>
+          </View>
+
+          {/* 待复习 */}
+          <View className="bg-white rounded-xl p-3 shadow-sm">
+            <View className="flex items-center gap-2 mb-2">
+              <Clock size={14} color="#F59E0B" />
+              <Text className="text-xs text-gray-500">待复习</Text>
+            </View>
+            <Text className="block text-2xl font-bold text-gray-900">{pendingReviewCount}</Text>
+          </View>
+
+          {/* 掌握度 */}
+          <View className="bg-white rounded-xl p-3 shadow-sm">
+            <View className="flex items-center gap-2 mb-2">
+              <TrendingUp size={14} color="#22C55E" />
+              <Text className="text-xs text-gray-500">掌握度</Text>
+            </View>
+            <Text className="block text-2xl font-bold text-gray-900">{stats.practiceAccuracy}%</Text>
+          </View>
+        </View>
+      </View>
+
       {/* 学习建议卡片 */}
-      <View className="px-4">
-        <View className="rounded-2xl p-4" style={{ background: 'linear-gradient(to right, rgba(245, 158, 11, 0.1), rgba(34, 197, 94, 0.1), rgba(249, 115, 22, 0.1))' }}>
-          <View className="flex items-center gap-3">
-            <View className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm">
-              <Sparkles size={24} color="#F59E0B" />
-            </View>
-            <View className="flex-1">
-              <Text className="block text-base font-semibold text-foreground">每日学习建议</Text>
-              <Text className="block text-sm text-gray-600 mt-1">
-                {todayReviewCount > 0 
-                  ? `今天有 ${todayReviewCount} 道错题需要复习，记得巩固哦！`
-                  : '继续保持！坚持复习让知识记得更牢'}
-              </Text>
-            </View>
+      <View className="px-5 mb-4">
+        <View className="bg-orange-50 rounded-xl p-4 flex items-center gap-3">
+          <View className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+            <Lightbulb size={20} color="#F97316" />
           </View>
+          <Text className="flex-1 text-sm text-gray-700">{latestKnowledgePoint}</Text>
         </View>
-      </View>
-
-      {/* 待复习提醒 */}
-      <View className="px-4 mt-4">
-        {todayReviewCount > 0 && (
-          <View 
-            className="bg-white rounded-2xl p-4 shadow-sm"
-            onClick={() => navigateTo('/pages/review/index')}
-          >
-            <View className="flex items-center gap-3">
-              <View className="w-10 h-10 rounded-xl bg-warning bg-opacity-20 flex items-center justify-center">
-                <Calendar size={20} color="#F59E0B" />
-              </View>
-              <View className="flex-1">
-                <Text className="block text-base font-semibold text-foreground">今日待复习</Text>
-                <Text className="block text-sm text-gray-500">还有 {todayReviewCount} 道错题需要回顾</Text>
-              </View>
-              <ChevronRight size={20} color="#9CA3AF" />
-            </View>
-          </View>
-        )}
-      </View>
-      
-      {/* 统计卡片区域 */}
-      <View className="px-4 -mt-4">
-        <View className="grid grid-cols-2 gap-3">
-          {/* 错题统计 */}
-          <Card className="bg-white">
-            <CardContent className="p-4">
-              <View className="flex items-center gap-2 mb-2">
-                <View className="w-8 h-8 rounded-lg bg-error bg-opacity-10 flex items-center justify-center">
-                  <BookOpen size={16} color="#EF4444" />
-                </View>
-                <Text className="block text-sm text-gray-500">错题总数</Text>
-              </View>
-              <Text className="block text-2xl font-bold text-foreground">{stats.totalMistakes}</Text>
-              <Text className="block text-xs text-gray-400 mt-1">已掌握 {stats.masteredCount} 道</Text>
-            </CardContent>
-          </Card>
-          
-          {/* 今日复习 */}
-          <Card className="bg-white">
-            <CardContent className="p-4">
-              <View className="flex items-center gap-2 mb-2">
-                <View className="w-8 h-8 rounded-lg bg-warning bg-opacity-10 flex items-center justify-center">
-                  <Calendar size={16} color="#F59E0B" />
-                </View>
-                <Text className="block text-sm text-gray-500">今日复习</Text>
-              </View>
-              <Text className="block text-2xl font-bold text-foreground">{stats.reviewToday}</Text>
-              <Text className="block text-xs text-gray-400 mt-1">项复习任务</Text>
-            </CardContent>
-          </Card>
-          
-          {/* 练习正确率 */}
-          <Card className="bg-white">
-            <CardContent className="p-4">
-              <View className="flex items-center gap-2 mb-2">
-                <View className="w-8 h-8 rounded-lg bg-success bg-opacity-10 flex items-center justify-center">
-                  <TrendingUp size={16} color="#22C55E" />
-                </View>
-                <Text className="block text-sm text-gray-500">练习正确率</Text>
-              </View>
-              <Text className="block text-2xl font-bold text-foreground">{stats.practiceAccuracy}%</Text>
-              <Text className="block text-xs text-gray-400 mt-1">最近7天</Text>
-            </CardContent>
-          </Card>
-          
-          {/* 学习天数 */}
-          <Card className="bg-white">
-            <CardContent className="p-4">
-              <View className="flex items-center gap-2 mb-2">
-                <View className="w-8 h-8 rounded-lg bg-accent bg-opacity-10 flex items-center justify-center">
-                  <Star size={16} color="#F59E0B" />
-                </View>
-                <Text className="block text-sm text-gray-500">坚持学习</Text>
-              </View>
-              <Text className="block text-2xl font-bold text-foreground">7</Text>
-              <Text className="block text-xs text-gray-400 mt-1">天连续打卡</Text>
-            </CardContent>
-          </Card>
-        </View>
-      </View>
-      
-      {/* 快速入口区域 - 四个标签页入口 */}
-      <View className="px-4 mt-6">
-        <Text className="block text-base font-semibold text-foreground mb-3">快速开始</Text>
-        <View className="grid grid-cols-2 gap-3">
-          {/* 拍照提交作业 - 跳转标签页 */}
-          <View 
-            className="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50"
-            onClick={() => Taro.switchTab({ url: '/pages/homework/index' })}
-          >
-            <View className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-3">
-              <Camera size={28} color="#FFFFFF" />
-            </View>
-            <Text className="block text-base font-semibold text-foreground">拍照提交作业</Text>
-            <Text className="block text-xs text-gray-500 mt-1">AI 检查作业完成情况</Text>
-          </View>
-          
-          {/* 记录错题 - 跳转标签页 */}
-          <View 
-            className="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50"
-            onClick={() => Taro.switchTab({ url: '/pages/mistakes/index' })}
-          >
-            <View className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center mb-3">
-              <BookOpen size={28} color="#FFFFFF" />
-            </View>
-            <Text className="block text-base font-semibold text-foreground">记录错题</Text>
-            <Text className="block text-xs text-gray-500 mt-1">拍照保存，自动分析知识点</Text>
-          </View>
-          
-          {/* 复习提醒 - 跳转标签页 */}
-          <View 
-            className="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50"
-            onClick={() => Taro.switchTab({ url: '/pages/review/index' })}
-          >
-            <View className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center mb-3">
-              <Calendar size={28} color="#FFFFFF" />
-            </View>
-            <Text className="block text-base font-semibold text-foreground">复习提醒</Text>
-            <Text className="block text-xs text-gray-500 mt-1">记忆曲线科学复习</Text>
-          </View>
-          
-          {/* 练习中心 - 跳转标签页 */}
-          <View 
-            className="bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50"
-            onClick={() => Taro.switchTab({ url: '/pages/practice/index' })}
-          >
-            <View className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-3">
-              <TrendingUp size={28} color="#FFFFFF" />
-            </View>
-            <Text className="block text-base font-semibold text-foreground">练习中心</Text>
-            <Text className="block text-xs text-gray-500 mt-1">薄弱点针对性强化</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 功能说明 */}
-      <View className="px-4 mt-6 mb-4">
-        <Card className="bg-primary bg-opacity-5 border border-primary border-opacity-20">
-          <CardContent className="p-4">
-            <Text className="block text-sm font-medium text-foreground mb-2">功能简介</Text>
-            <View className="space-y-2">
-              <View className="flex items-start gap-2">
-                <View className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                <Text className="block text-xs text-gray-600">拍照提交作业：拍下语文、数学、英语作业，系统自动检查完成情况</Text>
-              </View>
-              <View className="flex items-start gap-2">
-                <View className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                <Text className="block text-xs text-gray-600">错题记录与分析：拍照保存错题，自动分析知识点，标记知识盲点</Text>
-              </View>
-              <View className="flex items-start gap-2">
-                <View className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                <Text className="block text-xs text-gray-600">记忆曲线复习：基于艾宾浩斯记忆法，自动提醒复习，强化长期记忆</Text>
-              </View>
-              <View className="flex items-start gap-2">
-                <View className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                <Text className="block text-xs text-gray-600">同类习题练习：根据错题情况智能生成针对性练习题</Text>
-              </View>
-            </View>
-          </CardContent>
-        </Card>
       </View>
     </View>
   )

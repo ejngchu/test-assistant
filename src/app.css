@@ -1,141 +1,110 @@
-/* stylelint-disable selector-type-no-unknown */
-/* stylelint-disable at-rule-no-unknown */
-/* stylelint-disable number-max-precision */
-@import url('weapp-tailwindcss');
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
-/* 小程序页面容器高度设置，确保垂直居中生效 */
-page {
-  height: 100%;
+/* Taro H5 适配 bug fix（P1-TaroLayer）：Taro 注入的 taro-text-core/taro-view-core
+ * 元素选择器没有 @layer，优先级高于 Tailwind v4 的 @layer utilities，
+ * 导致 .block / .flex / .grid / .inline-flex / .hidden 等 display 工具类失效。
+ * 用更高特异性的元素+类选择器（0,0,1,1）赢过 Taro 的元素选择器（0,0,0,1）。
+ * 修于 2026-06-07 — H5 dev 调试时布局错乱的根因。
+ */
+taro-text-core.block,
+taro-view-core.block,
+.block { display: block; }
+taro-text-core.flex,
+taro-view-core.flex,
+.flex { display: flex; }
+taro-text-core.inline-flex,
+taro-view-core.inline-flex,
+.inline-flex { display: inline-flex; }
+taro-text-core.grid,
+taro-view-core.grid,
+.grid { display: grid; }
+taro-text-core.hidden,
+taro-view-core.hidden,
+.hidden { display: none; }
+
+@layer base {
+  /*
+   * shadcn/ui 主题变量 —— 修复 P1-12
+   * tailwind.config.js 引用了这些 var(--*) 但 src/app.css 从未定义过，
+   * 导致 bg-background / text-foreground / border-border / ring 等全部隐形。
+   * 这里按 shadcn 默认 light/dark 主题填齐。
+   */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    /* borderRadius 用的 fallback（--radius 也被 borderRadius.DEFAULT 引用） */
+    --radius: 0.5rem;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+  }
+
+  .dark {
+    --background: 222.2 47.4% 11.2%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 47.4% 11.2%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 47.4% 11.2%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+
+  /* 防御性兜底：给未继承 var() 的地方一个安全默认值，
+   * 防止某些 weapp-tailwindcss 转换路径下 var() 解析失败导致样式全丢。 */
+  * {
+    border-color: hsl(var(--border, 214.3 31.8% 91.4%));
+  }
+  body {
+    background-color: hsl(var(--background, 0 0% 100%));
+    color: hsl(var(--foreground, 222.2 47.4% 11.2%));
+  }
 }
-
-:root,
-page,
-root-portal {
-  /* 学习助手主题色 - 活力橙 */
-  --background: #FAFAF9;
-  --foreground: #1F2937;
-  --card: #FFFFFF;
-  --card-foreground: #1F2937;
-  --popover: #FFFFFF;
-  --popover-foreground: #1F2937;
-  
-  /* 主色 - 琥珀黄/活力橙 */
-  --primary: #F59E0B;
-  --primary-foreground: #FFFFFF;
-  
-  /* 次要色 - 石灰白 */
-  --secondary: #F5F5F4;
-  --secondary-foreground: #1F2937;
-  
-  /* 强调色 - 翡翠绿 */
-  --muted: #F5F5F4;
-  --muted-foreground: #6B7280;
-  
-  /* 辅助强调色 */
-  --accent: #8B5CF6;
-  --accent-foreground: #FFFFFF;
-  
-  /* 破坏性操作 - 红色 */
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  
-  /* 边框与输入 */
-  --border: #E5E7EB;
-  --input: #F5F5F4;
-  --ring: #F59E0B;
-  
-  /* 科目专属色 */
-  --subject-chinese: #EF4444;
-  --subject-math: #3B82F6;
-  --subject-english: #10B981;
-  
-  /* 语义色 */
-  --success: #10B981;
-  --success-light: #D1FAE5;
-  --warning: #F59E0B;
-  --warning-light: #FEF3C7;
-  --error: #EF4444;
-  --error-light: #FEE2E2;
-  --info: #3B82F6;
-  --info-light: #DBEAFE;
-  
-  /* 侧边栏 (H5) */
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #1F2937;
-  --sidebar-primary: #F59E0B;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F5F5F4;
-  --sidebar-accent-foreground: #1F2937;
-  --sidebar-border: #E5E7EB;
-  --sidebar-ring: #F59E0B;
-  
-  /* Surface 系统 */
-  --surface: #FFFFFF;
-  --surface-container: #F5F5F4;
-  --surface-container-low: #FAFAF9;
-  --surface-container-lowest: #FFFFFF;
-  --surface-container-high: #EBEBEA;
-  --surface-container-highest: #E5E5E4;
-  
-  /* 代码块 */
-  --code: #F5F5F4;
-  --code-highlight: #EBEBEA;
-  --code-number: #6B7280;
-  
-  /* 选中/高亮 */
-  --selection: #F59E0B;
-  --selection-foreground: #FFFFFF;
-  
-  /* 阴影 */
-  --tw-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  --tw-shadow-color: initial;
-  --tw-shadow-alpha: 100%;
-  --tw-inset-shadow: 0 0 #0000;
-  --tw-inset-shadow-color: initial;
-  --tw-inset-shadow-alpha: 100%;
-  --tw-ring-color: initial;
-  --tw-ring-shadow: 0 0 #0000;
-  --tw-inset-ring-color: initial;
-  --tw-inset-ring-shadow: 0 0 #0000;
-  --tw-ring-inset: initial;
-  --tw-ring-offset-width: 0px;
-  --tw-ring-offset-color: #fff;
-  --tw-ring-offset-shadow: 0 0 #0000;
-  
-  /* 圆角 - 大圆角设计 */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-2xl: 32px;
-}
-
-.dark {
-  --background: #1F2937;
-  --foreground: #F9FAFB;
-  --card: #374151;
-  --card-foreground: #F9FAFB;
-  --popover: #374151;
-  --popover-foreground: #F9FAFB;
-  --primary: #FBBF24;
-  --primary-foreground: #1F2937;
-  --secondary: #4B5563;
-  --secondary-foreground: #F9FAFB;
-  --muted: #4B5563;
-  --muted-foreground: #9CA3AF;
-  --accent: #A78BFA;
-  --accent-foreground: #1F2937;
-  --destructive: #F87171;
-  --destructive-foreground: #1F2937;
-  --border: #4B5563;
-  --input: #4B5563;
-  --ring: #FBBF24;
-  --surface: #374151;
-  --surface-container: #4B5563;
-  --surface-container-low: #374151;
-  --surface-container-lowest: #2D3748;
-  --surface-container-high: #6B7280;
-  --surface-container-highest: #9CA3AF;
-}
-
-@custom-variant dark (&:is(.dark *));
