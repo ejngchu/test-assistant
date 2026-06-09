@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import tailwindcss from '@tailwindcss/postcss';
+import tailwindcss from 'tailwindcss';
 import { UnifiedViteWeappTailwindcssPlugin } from 'weapp-tailwindcss/vite';
 import { defineConfig, type UserConfigExport } from '@tarojs/cli';
 import type { PluginItem } from '@tarojs/taro/types/compile/config/project';
@@ -15,7 +15,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 const generateTTProjectConfig = (outputRoot: string) => {
   const config = {
     miniprogramRoot: './',
-    projectname: 'coze-mini-program',
+    projectname: 'venus-mate',
     appid: process.env.TARO_APP_TT_APPID || '',
     setting: {
       urlCheck: false,
@@ -74,7 +74,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
   };
 
   const baseConfig: UserConfigExport<'vite'> = {
-    projectName: 'coze-mini-program',
+    projectName: 'venus-mate',
     date: '2026-1-13',
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
@@ -91,9 +91,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
     plugins: ['@tarojs/plugin-generator', ...buildMiniCIPluginConfig()],
     defineConstants: {
       PROJECT_DOMAIN: JSON.stringify(
-        process.env.PROJECT_DOMAIN ||
-          process.env.COZE_PROJECT_DOMAIN_DEFAULT ||
-          '',
+        process.env.PROJECT_DOMAIN || '',
       ),
       TARO_ENV: JSON.stringify(process.env.TARO_ENV),
     },
@@ -104,7 +102,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
     ...(process.env.TARO_ENV === 'tt' && {
       tt: {
         appid: process.env.TARO_APP_TT_APPID,
-        projectName: 'coze-mini-program',
+        projectName: 'venus-mate',
       },
     }),
     jsMinimizer: 'esbuild',
@@ -114,7 +112,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
       vitePlugins: [
         {
           name: 'postcss-config-loader-plugin',
-          config(config) {
+          config(config: any) {
             // 通过 postcss 配置注册 tailwindcss 插件
             if (typeof config.css?.postcss === 'object') {
               config.css?.postcss.plugins?.unshift(tailwindcss());
@@ -122,19 +120,29 @@ export default defineConfig<'vite'>(async (merge, _env) => {
           },
         },
         {
+          // 注意（2026-06-07）：WXSS :has() 规则的处理改在独立 watcher 中做（见
+          // server/scripts/watch-strip-wxss.mjs）。原本想用 postcss 插件 / Vite transform /
+          // Vite writeBundle 三种方式，但都因为 Taro 4 + WXSS 流水线的特殊性而失效。
+          // 详细原因见该脚本注释。
           name: 'hmr-config-plugin',
           config() {
             if (!process.env.PROJECT_DOMAIN) {
               return;
             }
+            // Only set clientPort for reverse-proxy (HTTPS) scenarios;
+            // for local dev, Vite auto-infers from the page URL (port 5000).
+            const isLocalDev = /localhost|127\.0\.0\.1|192\.168\.|10\.\d+/.test(
+              process.env.PROJECT_DOMAIN,
+            );
             return {
               server: {
                 hmr: {
                   overlay: true,
                   path: '/hot/vite-hmr',
-                  port: 6000,
-                  clientPort: 443,
                   timeout: 30000,
+                  ...(isLocalDev
+                    ? {}
+                    : { clientPort: 443, port: 6000 }),
                 },
               },
             };
@@ -154,6 +162,32 @@ export default defineConfig<'vite'>(async (merge, _env) => {
                 name: 'generate-tt-project-config',
                 closeBundle() {
                   generateTTProjectConfig(outputRoot);
+                },
+              },
+            ]
+          : []),
+        ...(isH5
+          ? [
+              {
+                name: 'h5-favicon-plugin',
+                transformIndexHtml(html: string) {
+                  return html
+                    .replace(
+                      '</head>',
+                      '  <link rel="icon" href="./favicon.ico" type="image/x-icon">\n</head>'
+                    )
+                    .replace(
+                      /<title>.*?<\/title>/,
+                      '<title>学习助手</title>'
+                    );
+                },
+                closeBundle() {
+                  // Copy favicon.ico to H5 output directory
+                  const src = path.resolve(__dirname, '../public/favicon.ico');
+                  const destDir = path.resolve(__dirname, '../dist-web');
+                  if (fs.existsSync(src) && fs.existsSync(destDir)) {
+                    fs.copyFileSync(src, path.join(destDir, 'favicon.ico'));
+                  }
                 },
               },
             ]
@@ -218,7 +252,7 @@ export default defineConfig<'vite'>(async (merge, _env) => {
       },
     },
     rn: {
-      appName: 'coze-mini-program',
+      appName: 'venus-mate',
       postcss: {
         cssModules: {
           enable: false, // 默认为 false，如需使用 css modules 功能，则设为 true

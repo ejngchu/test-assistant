@@ -1,11 +1,13 @@
-@import "tailwindcss";
-@config "../tailwind.config.js";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Taro H5 适配 bug fix（P1-TaroLayer）：Taro 注入的 taro-text-core/taro-view-core
  * 元素选择器没有 @layer，优先级高于 Tailwind v4 的 @layer utilities，
  * 导致 .block / .flex / .grid / .inline-flex / .hidden 等 display 工具类失效。
  * 用更高特异性的元素+类选择器（0,0,1,1）赢过 Taro 的元素选择器（0,0,0,1）。
  * 修于 2026-06-07 — H5 dev 调试时布局错乱的根因。
+ * 2026-06-09：v4 回退到 v3 后保留该 fix。
  */
 taro-text-core.block,
 taro-view-core.block,
